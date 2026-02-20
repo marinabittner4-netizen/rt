@@ -1999,10 +1999,8 @@ try{
   }
 
   // ✅ Sichtbar machen: Appearance aktualisieren + Flatten (damit im Browser IMMER sichtbar & NICHT anklickbar)
-  try{ form.updateFieldAppearances(); }catch(e){ console.warn('updateFieldAppearances:', e); }
-  try{ form.flatten(); }catch(e){ console.warn('flatten:', e); }
-  // AcroForm-Eintrag aus Catalog entfernen → keine editierbaren Felder mehr
-  try{ pdfDoc.catalog.delete(pdfDoc.context.obj('AcroForm')); }catch(e){}
+  try{ form.updateFieldAppearances(); }catch(e){}
+  try{ form.flatten(); }catch(e){}
 
   const pdfBytes = await pdfDoc.save();
   return new Blob([pdfBytes], { type: 'application/pdf' });
@@ -2138,10 +2136,8 @@ try{
       }
     }
 
-    try { form.updateFieldAppearances(); } catch (e) { console.warn('updateFieldAppearances:', e); }
-    try { form.flatten(); } catch (e) { console.warn('flatten:', e); }
-    // AcroForm-Eintrag aus Catalog entfernen → keine editierbaren Felder mehr
-    try { pdfDoc.catalog.delete(pdfDoc.context.obj('AcroForm')); } catch (e) {}
+    try { form.updateFieldAppearances(); } catch (e) {}
+    try { form.flatten(); } catch (e) {}
 
     const pdfBytes = await pdfDoc.save();
     return new Blob([pdfBytes], { type: 'application/pdf' });
