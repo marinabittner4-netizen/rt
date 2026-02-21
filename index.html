@@ -2119,7 +2119,7 @@ if(status) status.textContent = (__wechselEnabled ? 'Bestellformular eingebettet
     (PG54_ROWS||[]).forEach((r) => {
       const q = Number(qtyMap[r.key]||0);
       if(q > 0){
-        const bez = (r.key === "gloves" && payload?.gloves?.size) ? `${r.label} Gr. ${payload.gloves.size}` : r.label;
+        const bez = (r.key === "gloves" && payload?.options?.gloves?.size) ? `${r.label} Gr. ${payload.options.gloves.size}` : r.label;
         rows.push({ pflegepos: r.pos, menge: q, bez });
       }
     });
@@ -2168,7 +2168,7 @@ if(status) status.textContent = (__wechselEnabled ? 'Bestellformular eingebettet
     safeSet('LS_NR', _lieferscheinNr(payload));
     safeSet('DATUM', dateStr);
     safeSet('LIEFERDATUM', dateStr);
-    safeSet('KUNDEN_NR', _customerNr(payload));
+    // KUNDEN_NR entfernt
 
     // Positionen
     const rows = _orderRows(payload) || [];
