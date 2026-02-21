@@ -635,10 +635,11 @@
           <!-- PDF PREVIEW AREA -->
           <div id="printArea" style="margin-top:12px;">
             <div id="pdfStatus" class="muted" style="margin:0 0 8px;"></div>
-            <a id="pdfOpenLink" href="#" target="_blank" rel="noopener" style="font-size:14px; margin:0 0 10px; display:inline-block;">Bestellformular in neuem Tab öffnen</a>
+            <!-- Bestellformular in neuem Tab öffnen (ausgeblendet, Vorschau ist fest eingebettet) -->
+            <a id="pdfOpenLink" href="#" target="_blank" rel="noopener" style="display:none"></a>
 
             <div id="pdfA4Wrap" class="pdfA4Wrap">
-              <iframe id="pdfPreview" title="PDF Vorschau" src="about:blank" loading="lazy"></iframe>
+              <canvas id="pdfCanvas" aria-label="Bestellformular Vorschau" style="width:100%; height:100%; display:block;"></canvas>
             </div>
           </div>
 
@@ -695,6 +696,7 @@
   © <span id="y"></span> Marina Pflegebox • Lokal nutzbar als <code>index.html</code> (kein Server nötig)
 </footer>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.js"></script>
 <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
 <script>
   // Kleine Inline-Icons (damit die ZIP ohne weitere Bilddateien funktioniert)
@@ -1596,28 +1598,78 @@
   const STATIC_PDF_URL = './richtige-pdf.pdf';
   const STATIC_WECHSEL_URL = './wechsel.pdf';
 
-  let __bestellUrl = null;  // Blob-URL (Bestellformular)
+  let __bestellUrl = null;  // Blob-URL (Bestellformular) – für Download / Merge
+  let __bestellBytes = null; // ArrayBuffer (Bestellformular) – für feste Vorschau (Canvas)
   let __anlageUrl  = null;  // Blob-URL (Anlage 2 ausgefüllt) – nur Download
   let __wechselUrl = null;  // Blob-URL (Wechselerklärung ausgefüllt) – nur Download
   let __wechselEnabled = false;
 
   function withPage(url){
+    // bleibt für Legacy/Download-Links (falls du es später wieder brauchst)
     const base = String(url || '').split('#')[0];
     return base + '#page=1';
   }
 
-  function currentPreviewUrl(){
-    return __bestellUrl || 'about:blank';
+  async function renderBestellToCanvas(bytes){
+    const status = document.getElementById('pdfStatus');
+    const wrap = document.getElementById('pdfA4Wrap');
+    const canvas = document.getElementById('pdfCanvas');
+    if(!wrap || !canvas) return;
+
+    const pdfjsLib = window['pdfjsLib'];
+    if(!pdfjsLib){
+      if(status) status.textContent = 'PDF-Vorschau konnte nicht geladen werden (pdf.js fehlt). Bitte Internet-Verbindung prüfen.';
+      return;
+    }
+
+    // Worker setzen (CDN)
+    try{
+      if(pdfjsLib.GlobalWorkerOptions && !pdfjsLib.GlobalWorkerOptions.workerSrc){
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.js';
+      }
+    }catch(e){}
+
+    try{
+      const loadingTask = pdfjsLib.getDocument({ data: bytes });
+      const pdf = await loadingTask.promise;
+      const page = await pdf.getPage(1);
+
+      // Skaliere auf die Breite des A4-Wrappers
+      const baseViewport = page.getViewport({ scale: 1 });
+      const targetWidth = wrap.clientWidth || baseViewport.width;
+      const scale = targetWidth / baseViewport.width;
+      const viewport = page.getViewport({ scale });
+
+      const ctx = canvas.getContext('2d', { alpha:false });
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+
+      // Rendern
+      const renderTask = page.render({ canvasContext: ctx, viewport });
+      await renderTask.promise;
+
+      // Canvas soll optisch A4 wirken
+      canvas.style.height = 'auto';
+    }catch(err){
+      console.error(err);
+      if(status) status.textContent = 'PDF-Vorschau konnte nicht gerendert werden.';
+    }
   }
 
   function showPreview(){
-    const iframe = document.getElementById('pdfPreview');
+    // Vorschau ist IMMER das Bestellformular – fest eingebettet ohne Browser-PDF-Leiste
     const openLink = document.getElementById('pdfOpenLink');
-    const url = currentPreviewUrl();
-    if(iframe)   iframe.src = withPage(url);
-    if(openLink){
-      openLink.href = withPage(url);
-      openLink.style.display = (__bestellUrl ? 'inline-block' : 'none');
+    if(openLink) openLink.style.display = 'none';
+
+    if(__bestellBytes){
+      renderBestellToCanvas(__bestellBytes);
+    }else{
+      // leer lassen
+      const canvas = document.getElementById('pdfCanvas');
+      if(canvas){
+        const ctx = canvas.getContext('2d');
+        if(ctx) ctx.clearRect(0,0,canvas.width,canvas.height);
+      }
     }
   }
 
@@ -1625,20 +1677,13 @@
   let __pdfBusy = false;
 
   function clearPdfPreview(){
-    const iframe = document.getElementById('pdfPreview');
     const status = document.getElementById('pdfStatus');
-    const openLink = document.getElementById('pdfOpenLink');
-
     if(status) status.textContent = '';
-    if(iframe) iframe.src = currentPreviewUrl();
-    if(openLink){
-      openLink.style.display = (__bestellUrl ? 'inline-block' : 'none');
-      openLink.href = withPage(currentPreviewUrl());
-    }
+    showPreview();
   }
 
   function renderPdfLocked(){
-    // Vorschau bleibt sichtbar (statische PDF), nur Hinweistext anzeigen
+    // Vorschau bleibt sichtbar, nur Hinweistext anzeigen
     clearPdfPreview();
     const status = document.getElementById('pdfStatus');
     if(status) status.textContent = 'Aktiviere bitte das blaue Einverständnis-Häkchen, damit das Formular als PDF erzeugt werden darf.';
@@ -1950,6 +1995,7 @@ try{
 
       // Alte Blob-URLs freigeben
       if(__bestellUrl){ try{ URL.revokeObjectURL(__bestellUrl); }catch{} __bestellUrl = null; }
+      __bestellBytes = null;
       if(__anlageUrl)  { try{ URL.revokeObjectURL(__anlageUrl);  }catch{} __anlageUrl  = null; }
       if(__wechselUrl) { try{ URL.revokeObjectURL(__wechselUrl); }catch{} __wechselUrl = null; }
 
@@ -1958,6 +2004,7 @@ try{
 
       // Bestellformular immer erzeugen (Vorschau)
       const bestellBlob = await generateBestellformularPdf(payload);
+      __bestellBytes = await bestellBlob.arrayBuffer();
       __bestellUrl = URL.createObjectURL(bestellBlob);
 
       // Anlage 2 immer erzeugen
@@ -2036,13 +2083,7 @@ if(status) status.textContent = (__wechselEnabled ? 'Bestellformular eingebettet
     (PG54_ROWS||[]).forEach((r) => {
       const q = Number(qtyMap[r.key]||0);
       if(q > 0){
-        // Bestellformular-Bezeichnung (kurz) – bei Handschuhen nur Name + Größe
-        let bz = r.label;
-        if(r.key === "gloves"){
-          const sz = String(payload?.options?.gloves?.size || "").trim();
-          bz = sz ? `Einmalhandschuhe – Größe ${sz}` : "Einmalhandschuhe";
-        }
-        rows.push({ pflegepos: r.pos, menge: q, bez: bz });
+        rows.push({ pflegepos: r.pos, menge: q, bez: r.label });
       }
     });
     const extra = Number(payload?.extras?.washable_bettschutzeinlagen||0);
