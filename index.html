@@ -2405,6 +2405,7 @@ const vaEl = document.getElementById('versicherungsart');
     const abw = document.getElementById('abweichend'); if(abw) abw.checked=false;
     const bzc=document.getElementById('bezugsCheck'); if(bzc) bzc.checked=false;
     ['repCheck','consent1','consent2','consent3'].forEach(id=>{const el=document.getElementById(id); if(el) el.checked=false;});
+    updateConsent2State();
     signature.insured='';
     signature.care='';
     if(signStatusInsured) signStatusInsured.textContent='Noch keine Unterschrift (Versicherte/r) erfasst.';
@@ -2461,11 +2462,34 @@ const vaEl = document.getElementById('versicherungsart');
 
   const bzc = document.getElementById('bezugsCheck');
   const bemWrap = document.getElementById('bemerkungWrap');
+  const consent2El = document.getElementById('consent2');
+
+  // consent2 (Marina Pflegebox) nur anklickbar wenn bezugsCheck gesetzt ist
+  function updateConsent2State() {
+    if (!consent2El) return;
+    if (bzc && bzc.checked) {
+      consent2El.disabled = false;
+      consent2El.closest('label')?.style.removeProperty('opacity');
+      consent2El.closest('label')?.style.removeProperty('cursor');
+    } else {
+      consent2El.disabled = true;
+      consent2El.checked = false;
+      if (consent2El.closest('label')) {
+        consent2El.closest('label').style.opacity = '0.4';
+        consent2El.closest('label').style.cursor = 'not-allowed';
+      }
+    }
+  }
+
   if(bzc && bemWrap){
     bzc.addEventListener('change', () => {
       bemWrap.style.display = bzc.checked ? 'block' : 'none';
+      updateConsent2State();
     });
   }
+
+  // Initialzustand setzen
+  updateConsent2State();
 
 
 // Einverständnisse: beide dürfen/sollen gemeinsam gesetzt werden.
