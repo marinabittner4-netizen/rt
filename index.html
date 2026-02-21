@@ -536,25 +536,7 @@
                 <div class="hint">Findest du auf deiner Gesundheitskarte.</div>
               </div>
 
-              <div class="field full">
-                <label class="checkRow questionBox">
-                  <input id="repCheck" type="checkbox" />
-                  <span>Gesetzlicher Vertreter vorhanden</span>
-                </label>
-              </div>
-
-              <div class="field repOnly hidden">
-                <label>Betreuungsperson / gesetzl. Vertreter (Name)</label>
-                <input id="betreuungName" type="text" placeholder="Name der Betreuungsperson" autocomplete="name" />
-                <div class="hint">Wird im Formular bei der Zusatz‑Unterschrift verwendet.</div>
-              </div>
-
-              <div class="field repOnly hidden">
-                <label>Betreuungsperson – Verhältnis (optional)</label>
-                <input id="betreuungRelation" type="text" placeholder="z. B. Ehepartner/in, Tochter/Sohn" />
-              </div>
-
-              <div class="field">
+<div class="field">
                 <label>Telefonnummer</label>
                 <input id="telefon" type="tel" placeholder="Telefonnummer" />
               </div>
@@ -598,14 +580,6 @@
                 </label>
               </div>
 
-              <div class="field full">
-                <label class="checkRow" style="align-items:flex-start;">
-                  <input id="consent3" type="checkbox" />
-                  <span style="line-height:1.35;">
-                    Ich wurde vor der Übergabe des Pflegehilfsmittels/der Pflegehilfsmittel umfassend beraten oder wünsche explizit keine Beratung.
-                  </span>
-                </label>
-              </div>
 
               <div class="field full">
                 <div class="form" style="gap:8px;">
@@ -614,12 +588,6 @@
                   </button>
                   <div class="muted" id="signStatusInsured">Noch keine Unterschrift (Versicherte/r) erfasst.</div>
 
-                  <div class="repOnly hidden" id="careSignBlock">
-                  <button class="secondary" id="btnSignCare" type="button" style="width:100%; text-align:left; padding:12px 14px; font-weight:800; font-size:16px;">
-                    Unterschrift Betreuungsperson
-                  </button>
-                  <div class="muted" id="signStatusCare">Noch keine Unterschrift (Betreuungsperson) erfasst.</div>
-                  </div>
                 </div>
               </div>
             </div>
@@ -791,12 +759,7 @@
   const printArea = document.getElementById("printArea");
 
   const btnPrint = document.getElementById("btnPrint");
-  const btnSignInsured = document.getElementById("btnSignInsured");
-  const btnSignCare = document.getElementById("btnSignCare");
-  const signStatusInsured = document.getElementById("signStatusInsured");
-  const signStatusCare = document.getElementById("signStatusCare");
-
-  const dots = [document.getElementById("dot1"), document.getElementById("dot2"), document.getElementById("dot3"), document.getElementById("dot4")];
+  const btnSignInsured = document.getElementById("btnSignInsured");  const signStatusInsured = document.getElementById("signStatusInsured");  const dots = [document.getElementById("dot1"), document.getElementById("dot2"), document.getElementById("dot3"), document.getElementById("dot4")];
   const stepShow = document.getElementById("stepShow");
   const steps = [document.getElementById("step1"), document.getElementById("step2"), document.getElementById("step3"), document.getElementById("step4")];
   let currentStep = 0;
@@ -1019,9 +982,7 @@
       target?.focus();
       alert('Bitte die Versichertennummer eingeben.');
       return false;
-    }
-    const repPresent = !!document.getElementById('repCheck')?.checked;
-    // Einverständnisse: BEIDE Häkchen müssen gesetzt sein (Bild 1)
+    }    // Einverständnisse: BEIDE Häkchen müssen gesetzt sein (Bild 1)
     const c1 = !!document.getElementById('consent1')?.checked;
     const c2 = !!document.getElementById('consent2')?.checked;
     if(!(c1 && c2)){
@@ -1031,7 +992,7 @@
       return false;
     }
 
-    // Unterschriften (Pflicht: Versicherte/r, Betreuungsperson nur bei gesetzl. Vertreter vorhanden)
+    // Unterschrift (Pflicht: Versicherte/r)
     if(!signature?.insured){
       btnSignInsured?.focus();
       alert('Bitte die Unterschrift der/des Versicherten erfassen.');
@@ -1327,11 +1288,7 @@
     const insuredAddr = addrLine(c);
     const kk = (ins.provider || '').trim();
 
-    const sigIns = ins.signatures?.insured || '';
-    const sigCare = ins.signatures?.care || '';
-    const careName = (ins.betreuung_name || '').trim();
-
-    const today = new Date();
+    const sigIns = ins.signatures?.insured || '';    const today = new Date();
     const dd = String(today.getDate()).padStart(2,'0');
     const mm = String(today.getMonth()+1).padStart(2,'0');
     const yyyy = String(today.getFullYear());
@@ -1577,24 +1534,17 @@
         provider: insuranceProvider,
         beihilfe: beihilfeAktiv,
         beihilfe_prozent: beihilfeProzent,
-        versichertennummer: document.getElementById('versichertennummer')?.value || "",
-        rep_present: !!document.getElementById('repCheck')?.checked,
-        betreuung_name: (document.getElementById('repCheck')?.checked ? (document.getElementById('betreuungName')?.value || "") : ""),
-        betreuung_relation: (document.getElementById('repCheck')?.checked ? (document.getElementById('betreuungRelation')?.value || "") : ""),
-        telefon: document.getElementById('telefon')?.value || "",
+        versichertennummer: document.getElementById('versichertennummer')?.value || "",        telefon: document.getElementById('telefon')?.value || "",
         email: document.getElementById('email')?.value || "",
         bezieht_bereits_pflegehilfsmittel: !!document.getElementById('bezugsCheck')?.checked,
         bemerkung: document.getElementById('bemerkung')?.value || "",
         einverstaendnis: {
           consent1: !!document.getElementById('consent1')?.checked,
-          consent2: !!document.getElementById('consent2')?.checked,
-          consent3: !!document.getElementById('consent3')?.checked,
-        },
+          consent2: !!document.getElementById('consent2')?.checked,        },
         signatures: {
-          insured: signature?.insured || "",
-          care: (document.getElementById('repCheck')?.checked ? (signature?.care || "") : "")
-        }
-      },
+           insured: signature?.insured || ""
+         }
+},
       options: {
         gloves: { size: options.gloves.size || "" }
       },
@@ -1633,7 +1583,7 @@
   // Blob-URLs der erzeugten PDFs (null = noch nicht erzeugt)
   let __anlageUrl = null;   // Blob für richtige-pdf ausgefüllt
   let __wechselUrl = null;  // Blob für wechsel.pdf ausgefüllt
-  let __wechselEnabled = false; // Wechselerklärung nur wenn consent3 aktiv
+  let __wechselEnabled = false; // Wechselerklärung deaktiviert (kein Auswahlfeld im Konfigurator)
 
   // Hilfsfunktion: Fragment #page=1 anhängen (für Browser-PDF-Viewer)
   function withPage(url){
@@ -2054,10 +2004,9 @@ try{
       if(__anlageUrl)  { try{ URL.revokeObjectURL(__anlageUrl);  }catch{} __anlageUrl  = null; }
       if(__wechselUrl) { try{ URL.revokeObjectURL(__wechselUrl); }catch{} __wechselUrl = null; }
 
-      // Wechselerklärung nur wenn consent3 aktiv ist
-      __wechselEnabled = !!payload?.insurance?.einverstaendnis?.consent3;
-
-      // Anlage 2 immer erzeugen
+      // Wechselerklärung ist im Konfigurator deaktiviert
+      __wechselEnabled = false;
+// Anlage 2 immer erzeugen
       const anlageBlob = await generateFilledPdf(payload);
       __anlageUrl = URL.createObjectURL(anlageBlob);
 
@@ -2073,7 +2022,7 @@ try{
       __pdfDoc = 1;
       showCurrentDoc();
 
-      if(status) status.textContent = (__wechselEnabled ? 'Formulare bereit – nutze „Weiter → Wechselerklärung" zum Umschalten.' : 'Anlage 2 bereit – Wechselerklärung wurde nicht gewählt.');
+      if(status) status.textContent = 'Anlage 2 bereit.';
     }catch(err){
       console.error(err);
       if(status) status.textContent = 'Fehler beim Erstellen der PDFs. Vorschau zeigt Vorlage.';
@@ -2186,11 +2135,7 @@ try{
   }
 
   async function downloadWechselPdf(payload) {
-    if(!payload?.insurance?.einverstaendnis?.consent3){
-      alert('Wechselerklärung wird nur erzeugt, wenn du das Häkchen „umfassend beraten / keine Beratung“ gesetzt hast.');
-      return;
-    }
-    const btn = document.getElementById('btnWechsel');
+const btn = document.getElementById('btnWechsel');
     const origText = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = 'Wird erstellt …'; }
     try {
@@ -2409,7 +2354,7 @@ try{
     extraWashableCount = 0;
     setExtraWashable(0);
     (document.getElementById('pflegegrad').value = '');
-    const ids = ['pflegegrad2','anrede','titel','vorname','nachname','strasse','hausnr','adresszusatz','plz','stadt','geburtsdatum','note','altAdresseText','versicherungsart','beihilfeAktiv','beihilfeProzent','krankenkasseName','versichertennummer','betreuungName','betreuungRelation','telefon','email','bemerkung'];
+    const ids = ['pflegegrad2','anrede','titel','vorname','nachname','strasse','hausnr','adresszusatz','plz','stadt','geburtsdatum','note','altAdresseText','versicherungsart','beihilfeAktiv','beihilfeProzent','krankenkasseName','versichertennummer','telefon','email','bemerkung'];
     ids.forEach(id => { const el=document.getElementById(id); if(!el) return; if(el.type==='checkbox') el.checked=false; else el.value=''; });
     // Versicherungsart UI zurücksetzen
 const vaEl = document.getElementById('versicherungsart');
@@ -2427,12 +2372,8 @@ const vaEl = document.getElementById('versicherungsart');
     }
     const abw = document.getElementById('abweichend'); if(abw) abw.checked=false;
     const bzc=document.getElementById('bezugsCheck'); if(bzc) bzc.checked=false;
-    ['repCheck','consent1','consent2','consent3'].forEach(id=>{const el=document.getElementById(id); if(el) el.checked=false;});
-    signature.insured='';
-    signature.care='';
-    if(signStatusInsured) signStatusInsured.textContent='Noch keine Unterschrift (Versicherte/r) erfasst.';
-    if(signStatusCare) signStatusCare.textContent='Noch keine Unterschrift (Betreuungsperson) erfasst.';
-    out.textContent = "{}";
+    ['consent1','consent2'].forEach(id=>{const el=document.getElementById(id); if(el) el.checked=false;});
+    signature.insured='';    if(signStatusInsured) signStatusInsured.textContent='Noch keine Unterschrift (Versicherte/r) erfasst.';    out.textContent = "{}";
     renderProducts();
     renderBar();
     setStep(0);
@@ -2442,37 +2383,6 @@ const vaEl = document.getElementById('versicherungsart');
     renderBar();
     if(currentStep === 3) buildOutput(false);
   });
-
-  
-  // Gesetzlicher Vertreter vorhanden -> repOnly Felder ein-/ausblenden
-  const repCheck = document.getElementById('repCheck');
-  const repOnlyEls = Array.from(document.querySelectorAll('.repOnly'));
-  const betreuungNameEl = document.getElementById('betreuungName');
-  const betreuungRelEl = document.getElementById('betreuungRelation');
-
-  const updateRepUI = (init=false) => {
-    const on = !!repCheck?.checked;
-    repOnlyEls.forEach(el => el.classList.toggle('hidden', !on));
-
-    // Wenn AUS: Werte + Unterschrift löschen
-    if(!on){
-      if(betreuungNameEl) betreuungNameEl.value = '';
-      if(betreuungRelEl) betreuungRelEl.value = '';
-      if(signature) signature.care = '';
-      if(signStatusCare) signStatusCare.textContent = 'Nicht erforderlich (kein gesetzl. Vertreter ausgewählt).';
-    } else {
-      if(signStatusCare && !signature?.care) signStatusCare.textContent = 'Noch keine Unterschrift (Betreuungsperson) erfasst.';
-    }
-
-    if(currentStep === 3) buildOutput(false);
-  };
-
-  if(repCheck){
-    repCheck.addEventListener('change', () => updateRepUI(false));
-    // Initial (Startzustand)
-    updateRepUI(true);
-  }
-
 // UI Toggles
   const abw = document.getElementById('abweichend');
   const altWrap = document.getElementById('altAddress');
@@ -2508,9 +2418,7 @@ const vaEl = document.getElementById('versicherungsart');
     if(!signModal || !canvas || !ctx) return;
     signTarget = target || 'insured';
     if(signTitle){
-      signTitle.textContent = signTarget === 'care'
-        ? 'Unterschrift Betreuungsperson'
-        : 'Unterschrift Versicherte/r';
+      signTitle.textContent = 'Unterschrift Versicherte/r';
     }
     signModal.style.display = 'block';
     resizeCanvas();
@@ -2586,17 +2494,13 @@ const vaEl = document.getElementById('versicherungsart');
     return false;
   }
 
-  if(btnSignInsured) btnSignInsured.addEventListener('click', () => openSign('insured'));
-  if(btnSignCare) btnSignCare.addEventListener('click', () => openSign('care'));
-  if(signClose) signClose.addEventListener('click', closeSign);
+  if(btnSignInsured) btnSignInsured.addEventListener('click', () => openSign('insured'));  if(signClose) signClose.addEventListener('click', closeSign);
   if(signModal) signModal.addEventListener('click', (e)=>{ if(e.target === signModal) closeSign(); });
 
   if(signClear) signClear.addEventListener('click', ()=>{
     ctx.clearRect(0,0,canvas.width,canvas.height);
     signature[signTarget] = '';
-    if(signTarget === 'care'){
-      if(signStatusCare) signStatusCare.textContent='Noch keine Unterschrift (Betreuungsperson) erfasst.';
-    }else{
+else{
       if(signStatusInsured) signStatusInsured.textContent='Noch keine Unterschrift (Versicherte/r) erfasst.';
     }
     if(currentStep === 3) buildOutput(false);
@@ -2615,9 +2519,7 @@ const vaEl = document.getElementById('versicherungsart');
     if(c2) c2.checked = true;
     try{ updateNext3Lock(); }catch(e){}
     signature[signTarget] = canvas.toDataURL('image/png');
-    if(signTarget === 'care'){
-      if(signStatusCare) signStatusCare.textContent = 'Unterschrift (Betreuungsperson) erfasst ✅';
-    }else{
+else{
       if(signStatusInsured) signStatusInsured.textContent = 'Unterschrift (Versicherte/r) erfasst ✅';
     }
     if(currentStep === 3) buildOutput(false);
