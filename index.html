@@ -2168,7 +2168,7 @@ if(status) status.textContent = (__wechselEnabled ? 'Bestellformular eingebettet
     safeSet('LS_NR', _lieferscheinNr(payload));
     safeSet('DATUM', dateStr);
     safeSet('LIEFERDATUM', dateStr);
-    // KUNDEN_NR entfernt
+    safeSet('KUNDEN_NR', _customerNr(payload));
 
     // Positionen
     const rows = _orderRows(payload) || [];
