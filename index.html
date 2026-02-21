@@ -2324,13 +2324,12 @@ try{
   document.getElementById("next2").addEventListener("click", tryNext);
   document.getElementById("next3").addEventListener("click", tryNext);
 
-  // Weiter zur Übersicht nur, wenn beide Einverständnisse (Bild 1) gesetzt sind
+  // Weiter zur Übersicht: nur consent1 (Anlage 2) ist Pflicht; consent2 optional
   function updateNext3Lock(){
     const btn = document.getElementById('next3');
     if(!btn) return;
     const c1 = !!document.getElementById('consent1')?.checked;
-    const c2 = !!document.getElementById('consent2')?.checked;
-    btn.disabled = !(c1 && c2);
+    btn.disabled = !c1;
   }
   ['consent1','consent2'].forEach(id=>{
     const el = document.getElementById(id);
