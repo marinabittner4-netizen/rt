@@ -2054,6 +2054,185 @@ try{
   }
 
   // =========================================================
+  // Bestellformular (Lieferschein) automatisch als PDF erzeugen
+  // Layout orientiert sich 1:1 am Screenshot (Bild 2)
+  // =========================================================
+  function _fmtDate(d){
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const yyyy = String(d.getFullYear());
+    return `${dd}.${mm}.${yyyy}`;
+  }
+
+  function _lieferscheinNr(payload){
+    try{
+      const dt = payload?.createdAt ? new Date(payload.createdAt) : new Date();
+      const y = String(dt.getFullYear());
+      const m = String(dt.getMonth()+1).padStart(2,'0');
+      const d = String(dt.getDate()).padStart(2,'0');
+      const hh = String(dt.getHours()).padStart(2,'0');
+      const mi = String(dt.getMinutes()).padStart(2,'0');
+      const ss = String(dt.getSeconds()).padStart(2,'0');
+      const r = String(Math.floor(Math.random()*90)+10);
+      return `PB-${y}${m}${d}-${hh}${mi}${ss}-${r}`;
+    }catch(e){
+      return `PB-${Date.now()}`;
+    }
+  }
+
+  function _customerNr(payload){
+    const c = payload?.customer || {};
+    const base = `${(c.nachname||'').trim()}${(c.vorname||'').trim()}`.replace(/\s+/g,'');
+    if(base) return base.slice(0,18);
+    return '';
+  }
+
+  function _orderRows(payload){
+    const qtyMap = Object.fromEntries((payload?.items||[]).map(it => [it.id, Number(it.qty||0)]));
+    const rows = [];
+    (PG54_ROWS||[]).forEach((r) => {
+      const q = Number(qtyMap[r.key]||0);
+      if(q > 0){
+        rows.push({ pflegepos: r.pos, menge: q, bez: r.label });
+      }
+    });
+    const extra = Number(payload?.extras?.washable_bettschutzeinlagen||0);
+    if(extra > 0){
+      rows.push({ pflegepos: '—', menge: extra, bez: 'Waschbare Bettschutzeinlagen (Extra)' });
+    }
+    return rows;
+  }
+
+  async function generateBestellformularPdf(payload){
+    const { PDFDocument, StandardFonts } = window.PDFLib || {};
+    if(!PDFDocument) throw new Error('PDFLib nicht verfügbar (CDN nicht geladen).');
+
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([595.28, 841.89]); // A4
+
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+
+    const c = payload?.customer || {};
+    const today = new Date();
+
+    const left = 56; // ~2cm
+    const right = 595.28 - 56;
+    const top = 841.89 - 56;
+
+    const small = 9;
+    const normal = 10;
+
+    // Kopf links
+    page.drawText('Pflegebox Marina - Hervesterstr.16 - 46286 Dorsten', { x:left, y:top, size:small, font });
+
+    // Kundenanschrift
+    page.drawText('Kunden Anschrift', { x:left, y:top-40, size:small, font:fontBold });
+    const name = `${(c.vorname||'').trim()} ${(c.nachname||'').trim()}`.trim();
+    const street = `${(c.strasse||'').trim()} ${(c.hausnr||'').trim()}`.trim();
+    const city = `${(c.plz||'').trim()} ${(c.stadt||'').trim()}`.trim();
+    const addrLines = [name, street, city].filter(Boolean);
+    const addrY = top-62;
+    addrLines.forEach((ln, i)=>{
+      page.drawText(ln, { x:left, y:addrY - i*13, size:normal, font });
+    });
+
+    // Firmenblock rechts oben
+    const firmX = right-140;
+    page.drawText('Pflegebox Marina', { x:firmX, y:top-8, size:normal, font:fontBold });
+    page.drawText('Hervesterstr.16', { x:firmX, y:top-22, size:normal, font });
+    page.drawText('46286 Dorsten', { x:firmX, y:top-36, size:normal, font });
+
+    // Titel
+    page.drawText('Lieferschein', { x:left, y:top-200, size:22, font:fontBold });
+
+    // Meta rechts
+    const metaX = right-170;
+    const metaY = top-165;
+    const lsNr = _lieferscheinNr(payload);
+    const dateStr = _fmtDate(today);
+    const meta = [
+      ['Lieferschein-Nr:', lsNr],
+      ['Datum:', dateStr],
+      ['Lieferdatum:', dateStr],
+      ['Kunden-Nr:', _customerNr(payload)],
+    ];
+    meta.forEach((m, i)=>{
+      const y = metaY - i*13;
+      page.drawText(m[0], { x:metaX, y, size:small, font:fontBold });
+      page.drawText(String(m[1]||''), { x:metaX+90, y, size:small, font });
+    });
+
+    // Tabellenkopf
+    const tableY = top-260;
+    page.drawText('Pos.', { x:left, y:tableY, size:small, font:fontBold });
+    page.drawText('Pflegepositions-Nr.', { x:left+45, y:tableY, size:small, font:fontBold });
+    page.drawText('Menge', { x:left+170, y:tableY, size:small, font:fontBold });
+    page.drawText('Bezeichnung', { x:left+220, y:tableY, size:small, font:fontBold });
+    page.drawLine({ start:{x:left, y:tableY-10}, end:{x:right, y:tableY-10}, thickness:1 });
+
+    const rows = _orderRows(payload);
+    let y = tableY - 34;
+    const rowH = 16;
+    rows.slice(0, 18).forEach((r, idx)=>{
+      page.drawText(String(idx+1), { x:left, y, size:small, font });
+      page.drawText(String(r.pflegepos||''), { x:left+45, y, size:small, font });
+      page.drawText(String(r.menge||''), { x:left+170, y, size:small, font });
+      const bez = String(r.bez||'');
+      const maxLen = 70;
+      const bezOut = bez.length > maxLen ? (bez.slice(0,maxLen-1) + '…') : bez;
+      page.drawText(bezOut, { x:left+220, y, size:small, font });
+      y -= rowH;
+    });
+
+    // Erklärung
+    const erklY = tableY - 320;
+    const erkl = [
+      'Erklärung: Ich darf die Pflegehilfsmittel nicht an Dritte weitergeben oder verpfänden. Die Kosten werden nur bis zur von meiner',
+      'Pflegekasse genehmigten Höhe übernommen; für zusätzliche Leistungen trage ich die Kosten selbst.'
+    ];
+    erkl.forEach((ln,i)=> page.drawText(ln, { x:left, y:erklY - i*12, size:small, font }));
+
+    // Änderungswunsch
+    const blockY = erklY - 70;
+    page.drawText('Haben Sie einen Änderungswunsch?', { x:left, y:blockY, size:13, font:fontBold });
+    page.drawText('Bitte melden Sie sich bis zum 20. des Monats auf unserer Website', { x:left, y:blockY-22, size:normal, font:fontBold });
+    page.drawText('Adresse, per E-Mail an kontakt@pb-marina.de oder telefonisch unter', { x:left, y:blockY-36, size:normal, font:fontBold });
+    page.drawText('02369/7429658.', { x:left, y:blockY-50, size:normal, font:fontBold });
+
+    // Gruß
+    page.drawText('Mit freundlichen Grüßen', { x:left, y:blockY-120, size:normal, font });
+    page.drawText('Ihr Pflegebox Marina Team', { x:left, y:blockY-190, size:normal, font });
+
+    // Footer
+    const footY = 56;
+    // Links
+    page.drawText('Pflegebox Marina', { x:left, y:footY+24, size:small, font });
+    page.drawText('Hervesterstr. 16 - 46286 Dorsten', { x:left, y:footY+12, size:small, font });
+    page.drawText('Geschäftsführung: Marina Bittner', { x:left, y:footY, size:small, font });
+
+    // Mitte
+    const midX = 260;
+    page.drawText('Tel.: 02369/7429658', { x:midX, y:footY+24, size:small, font });
+    page.drawText('Fax.: 02369/7429398', { x:midX, y:footY+12, size:small, font });
+    page.drawText('E-Mail.: kontakt@pb-marina.de', { x:midX, y:footY, size:small, font });
+    page.drawText('Shop: www.', { x:midX, y:footY-12, size:small, font });
+    page.drawText('IK: 330522443', { x:midX, y:footY-24, size:small, font });
+
+    // Rechts
+    const rX = right-190;
+    page.drawText('Bankverbindung', { x:rX, y:footY+24, size:small, font });
+    page.drawText('Sparkasse Vest Recklinghausen', { x:rX, y:footY+12, size:small, font });
+    page.drawText('IBAN: DE96 4265 0150 1001 5171 17', { x:rX, y:footY, size:small, font });
+    page.drawText('BIC: WELADED1REK', { x:rX, y:footY-12, size:small, font });
+    page.drawText('Seite: 1', { x:right-60, y:footY+24, size:small, font });
+
+    const bytes = await pdfDoc.save();
+    return new Blob([bytes], { type:'application/pdf' });
+  }
+
+
+  // =========================================================
   // 1 Button: PDF Download (Anlage 2 immer + optional Wechselerklärung)
   // - Wenn Wechselerklärung NICHT gewählt: nur Anlage 2 herunterladen
   // - Wenn gewählt: Anlage 2 + Wechselerklärung zu EINEM PDF zusammenführen
@@ -2065,44 +2244,39 @@ try{
     // Wechselerklärung nur wenn bezugsCheck UND consent2 beide aktiv
     const wechselEnabled = !!(payload?.insurance?.einverstaendnis?.consent2 && payload?.insurance?.bezieht_bereits_pflegehilfsmittel);
 
-    // Immer Anlage 2 erzeugen
-    const anlageBlob = await generateFilledPdf(payload);
+    // Immer erzeugen: Bestellformular + Anlage 2
+    const bestellBlob = await generateBestellformularPdf(payload);
+    const anlageBlob  = await generateFilledPdf(payload);
 
-    // Wenn keine Wechselerklärung: Anlage 2 direkt laden
-    if(!wechselEnabled){
-      const url = URL.createObjectURL(anlageBlob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'Pflegehilfsmittel_Anlage2.pdf';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(()=>{ try{ URL.revokeObjectURL(url);}catch{} }, 2000);
-      return;
-    }
+    // Optional: Wechselerklärung
+    const wechselBlob = wechselEnabled ? await generateWechselPdf(payload) : null;
 
-    // Wechselerklärung erzeugen
-    const wechselBlob = await generateWechselPdf(payload);
-
-    // Zusammenführen in EIN PDF
+    // Zusammenführen in EIN PDF (Reihenfolge: Bestellformular -> Anlage 2 -> (optional) Wechselerklärung)
     const outDoc = await PDFDocument.create();
+
+    const bestellBytes = await bestellBlob.arrayBuffer();
+    const bestellDoc = await PDFDocument.load(bestellBytes);
+    const bestellPages = await outDoc.copyPages(bestellDoc, bestellDoc.getPageIndices());
+    bestellPages.forEach(p => outDoc.addPage(p));
 
     const anlageBytes = await anlageBlob.arrayBuffer();
     const anlageDoc = await PDFDocument.load(anlageBytes);
     const anlagePages = await outDoc.copyPages(anlageDoc, anlageDoc.getPageIndices());
     anlagePages.forEach(p => outDoc.addPage(p));
 
-    const wechselBytes = await wechselBlob.arrayBuffer();
-    const wechselDoc = await PDFDocument.load(wechselBytes);
-    const wechselPages = await outDoc.copyPages(wechselDoc, wechselDoc.getPageIndices());
-    wechselPages.forEach(p => outDoc.addPage(p));
+    if(wechselBlob){
+      const wechselBytes = await wechselBlob.arrayBuffer();
+      const wechselDoc = await PDFDocument.load(wechselBytes);
+      const wechselPages = await outDoc.copyPages(wechselDoc, wechselDoc.getPageIndices());
+      wechselPages.forEach(p => outDoc.addPage(p));
+    }
 
     const mergedBytes = await outDoc.save();
     const mergedBlob = new Blob([mergedBytes], { type: 'application/pdf' });
     const url = URL.createObjectURL(mergedBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'Pflegehilfsmittel_Anlage2_und_Wechselerklaerung.pdf';
+    a.download = wechselBlob ? 'Pflegehilfsmittel_Paket_mit_Wechselerklaerung.pdf' : 'Pflegehilfsmittel_Paket.pdf';
     document.body.appendChild(a);
     a.click();
     a.remove();
