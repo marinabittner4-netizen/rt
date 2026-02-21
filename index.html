@@ -169,6 +169,9 @@
       box-shadow: 0 10px 28px rgba(0,0,0,.10);
     }
     .pdfA4Wrap iframe{ width:100%; height:100%; border:0; }
+    .pdfCanvasWrap{width:100%; height:100%;}
+    #pdfCanvas{display:block; width:100%; height:100%;}
+
     .pdfNav{
       display:flex;
       justify-content:space-between;
@@ -635,11 +638,15 @@
           <!-- PDF PREVIEW AREA -->
           <div id="printArea" style="margin-top:12px;">
             <div id="pdfStatus" class="muted" style="margin:0 0 8px;"></div>
-            <!-- Bestellformular in neuem Tab öffnen (ausgeblendet, Vorschau ist fest eingebettet) -->
-            <a id="pdfOpenLink" href="#" target="_blank" rel="noopener" style="display:none"></a>
+            <a id="pdfOpenLink" href="#" target="_blank" rel="noopener" style="font-size:14px; margin:0 0 10px; display:inline-block;">Bestellformular in neuem Tab öffnen</a>
 
             <div id="pdfA4Wrap" class="pdfA4Wrap">
-              <canvas id="pdfCanvas" aria-label="Bestellformular Vorschau" style="width:100%; height:100%; display:block;"></canvas>
+              
+              <div class="pdfCanvasWrap" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#fff;">
+                <canvas id="pdfCanvas" style="width:100%; height:100%;"></canvas>
+              </div>
+              <iframe id="pdfPreview" title="PDF Vorschau (Fallback)" src="about:blank" loading="lazy" style="display:none;"></iframe>
+
             </div>
           </div>
 
@@ -696,7 +703,6 @@
   © <span id="y"></span> Marina Pflegebox • Lokal nutzbar als <code>index.html</code> (kein Server nötig)
 </footer>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.min.js"></script>
 <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
 <script>
   // Kleine Inline-Icons (damit die ZIP ohne weitere Bilddateien funktioniert)
@@ -1598,98 +1604,136 @@
   const STATIC_PDF_URL = './richtige-pdf.pdf';
   const STATIC_WECHSEL_URL = './wechsel.pdf';
 
-  let __bestellUrl = null;  // Blob-URL (Bestellformular) – für Download / Merge
-  let __bestellBytes = null; // ArrayBuffer (Bestellformular) – für feste Vorschau (Canvas)
+  let __bestellUrl = null;  // Blob-URL (Bestellformular)
   let __anlageUrl  = null;  // Blob-URL (Anlage 2 ausgefüllt) – nur Download
   let __wechselUrl = null;  // Blob-URL (Wechselerklärung ausgefüllt) – nur Download
   let __wechselEnabled = false;
 
   function withPage(url){
-    // bleibt für Legacy/Download-Links (falls du es später wieder brauchst)
     const base = String(url || '').split('#')[0];
     return base + '#page=1';
   }
 
-  async function renderBestellToCanvas(bytes){
-    const status = document.getElementById('pdfStatus');
-    const wrap = document.getElementById('pdfA4Wrap');
-    const canvas = document.getElementById('pdfCanvas');
-    if(!wrap || !canvas) return;
-
-    const pdfjsLib = window['pdfjsLib'];
-    if(!pdfjsLib){
-      if(status) status.textContent = 'PDF-Vorschau konnte nicht geladen werden (pdf.js fehlt). Bitte Internet-Verbindung prüfen.';
-      return;
-    }
-
-    // Worker setzen (CDN)
-    try{
-      if(pdfjsLib.GlobalWorkerOptions && !pdfjsLib.GlobalWorkerOptions.workerSrc){
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.2.67/pdf.worker.min.js';
-      }
-    }catch(e){}
-
-    try{
-      const loadingTask = pdfjsLib.getDocument({ data: bytes });
-      const pdf = await loadingTask.promise;
-      const page = await pdf.getPage(1);
-
-      // Skaliere auf die Breite des A4-Wrappers
-      const baseViewport = page.getViewport({ scale: 1 });
-      const targetWidth = wrap.clientWidth || baseViewport.width;
-      const scale = targetWidth / baseViewport.width;
-      const viewport = page.getViewport({ scale });
-
-      const ctx = canvas.getContext('2d', { alpha:false });
-      canvas.width = Math.floor(viewport.width);
-      canvas.height = Math.floor(viewport.height);
-
-      // Rendern
-      const renderTask = page.render({ canvasContext: ctx, viewport });
-      await renderTask.promise;
-
-      // Canvas soll optisch A4 wirken
-      canvas.style.height = 'auto';
-    }catch(err){
-      console.error(err);
-      if(status) status.textContent = 'PDF-Vorschau konnte nicht gerendert werden.';
-    }
+  function currentPreviewUrl(){
+    return __bestellUrl || 'about:blank';
   }
 
   function showPreview(){
-    // Vorschau ist IMMER das Bestellformular – fest eingebettet ohne Browser-PDF-Leiste
+    const iframe = document.getElementById('pdfPreview'); // fallback
     const openLink = document.getElementById('pdfOpenLink');
-    if(openLink) openLink.style.display = 'none';
+    const url = currentPreviewUrl();
 
-    if(__bestellBytes){
-      renderBestellToCanvas(__bestellBytes);
-    }else{
-      // leer lassen
-      const canvas = document.getElementById('pdfCanvas');
-      if(canvas){
-        const ctx = canvas.getContext('2d');
-        if(ctx) ctx.clearRect(0,0,canvas.width,canvas.height);
-      }
+    // "Open in new tab" optional: nur zeigen, wenn wirklich ein PDF existiert
+    if(openLink){
+      openLink.href = withPage(url);
+      openLink.style.display = (__bestellUrl ? 'inline-block' : 'none');
     }
+
+    // Hauptweg: fest eingebettet ohne Toolbar (Canvas-Render via pdf.js)
+    renderBestellCanvas(url).catch((err)=>{
+      console.warn('Canvas-Preview fehlgeschlagen, nutze Fallback iFrame:', err);
+      if(iframe){
+        iframe.style.display = 'block';
+        iframe.src = withPage(url);
+      }
+    });
   }
 
   let __pdfPreviewUrl = null; // legacy compat
   let __pdfBusy = false;
 
   function clearPdfPreview(){
+    const iframe = document.getElementById('pdfPreview');
     const status = document.getElementById('pdfStatus');
+    const openLink = document.getElementById('pdfOpenLink');
+
     if(status) status.textContent = '';
-    showPreview();
+    if(iframe) iframe.src = currentPreviewUrl();
+    if(openLink){
+      openLink.style.display = (__bestellUrl ? 'inline-block' : 'none');
+      openLink.href = withPage(currentPreviewUrl());
+    }
   }
 
   function renderPdfLocked(){
-    // Vorschau bleibt sichtbar, nur Hinweistext anzeigen
+    // Vorschau bleibt sichtbar (statische PDF), nur Hinweistext anzeigen
     clearPdfPreview();
     const status = document.getElementById('pdfStatus');
     if(status) status.textContent = 'Aktiviere bitte das blaue Einverständnis-Häkchen, damit das Formular als PDF erzeugt werden darf.';
   }
 
-  async function fetchArrayBuffer(url){
+  
+  // ========= PDF Canvas Preview (ohne Browser-PDF-Toolbar) =========
+  // Rendert die ERZEUGTE Bestellformular-PDF (Blob-URL) in ein Canvas.
+  // Fallback: iFrame, falls pdf.js nicht verfügbar ist.
+  async function ensurePdfJs(){
+    // Wenn schon geladen → ok
+    if(window.pdfjsLib && window.pdfjsLib.getDocument) return;
+
+    // pdf.js dynamisch laden (CDN) – funktioniert bei Hosting (Vercel/Hetzner).
+    // Hinweis: Bei file:// offline kann das CDN blockiert sein → dann greift Fallback iFrame.
+    await new Promise((resolve, reject)=>{
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+    try{
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }catch(e){}
+  }
+
+  async function renderBestellCanvas(url){
+    const canvas = document.getElementById('pdfCanvas');
+    const wrap = document.getElementById('pdfA4Wrap');
+    const iframe = document.getElementById('pdfPreview'); // fallback
+    if(!canvas || !wrap) return;
+
+    // Wenn kein PDF da ist → Canvas leeren
+    if(!url || url === 'about:blank'){
+      const ctx = canvas.getContext('2d');
+      if(ctx){ ctx.clearRect(0,0,canvas.width,canvas.height); }
+      return;
+    }
+
+    // pdf.js laden
+    await ensurePdfJs();
+
+    // Blob-URL → ArrayBuffer
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('PDF konnte nicht geladen werden (Preview).');
+    const data = await res.arrayBuffer();
+
+    const loadingTask = window.pdfjsLib.getDocument({ data });
+    const pdf = await loadingTask.promise;
+    const page = await pdf.getPage(1);
+
+    // A4 Wrapper: canvas an Wrapper anpassen (mit devicePixelRatio für Schärfe)
+    const dpr = window.devicePixelRatio || 1;
+    const viewport = page.getViewport({ scale: 1 });
+
+    const targetW = wrap.clientWidth || 794;
+    const targetH = wrap.clientHeight || 1123;
+
+    const scale = Math.min(targetW / viewport.width, targetH / viewport.height);
+    const vp = page.getViewport({ scale });
+
+    canvas.width = Math.floor(vp.width * dpr);
+    canvas.height = Math.floor(vp.height * dpr);
+    canvas.style.width = Math.floor(vp.width) + 'px';
+    canvas.style.height = Math.floor(vp.height) + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // iFrame ausblenden, weil Canvas jetzt rendert
+    if(iframe) iframe.style.display = 'none';
+
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+  }
+
+async function fetchArrayBuffer(url){
     const res = await fetch(url);
     if(!res.ok){
       throw new Error(`PDF konnte nicht geladen werden (${res.status}): ${url}`);
@@ -1995,7 +2039,6 @@ try{
 
       // Alte Blob-URLs freigeben
       if(__bestellUrl){ try{ URL.revokeObjectURL(__bestellUrl); }catch{} __bestellUrl = null; }
-      __bestellBytes = null;
       if(__anlageUrl)  { try{ URL.revokeObjectURL(__anlageUrl);  }catch{} __anlageUrl  = null; }
       if(__wechselUrl) { try{ URL.revokeObjectURL(__wechselUrl); }catch{} __wechselUrl = null; }
 
@@ -2004,7 +2047,6 @@ try{
 
       // Bestellformular immer erzeugen (Vorschau)
       const bestellBlob = await generateBestellformularPdf(payload);
-      __bestellBytes = await bestellBlob.arrayBuffer();
       __bestellUrl = URL.createObjectURL(bestellBlob);
 
       // Anlage 2 immer erzeugen
