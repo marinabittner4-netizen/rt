@@ -2036,7 +2036,13 @@ if(status) status.textContent = (__wechselEnabled ? 'Bestellformular eingebettet
     (PG54_ROWS||[]).forEach((r) => {
       const q = Number(qtyMap[r.key]||0);
       if(q > 0){
-        rows.push({ pflegepos: r.pos, menge: q, bez: r.label });
+        // Bestellformular-Bezeichnung (kurz) – bei Handschuhen nur Name + Größe
+        let bz = r.label;
+        if(r.key === "gloves"){
+          const sz = String(payload?.options?.gloves?.size || "").trim();
+          bz = sz ? `Einmalhandschuhe – Größe ${sz}` : "Einmalhandschuhe";
+        }
+        rows.push({ pflegepos: r.pos, menge: q, bez: bz });
       }
     });
     const extra = Number(payload?.extras?.washable_bettschutzeinlagen||0);
