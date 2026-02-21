@@ -628,12 +628,7 @@
               <button class="danger" id="btnReset" type="button">Zurücksetzen</button>
             </div>
             <div class="right">
-              <button class="secondary" id="btnCopy" type="button">JSON kopieren</button>
-              <button class="secondary" id="btnPrint" type="button">Als PDF speichern / Drucken</button>
-              <button class="secondary" id="btnOpenPdf" type="button">PDF öffnen</button>
-              <button class="secondary" id="btnWechsel" type="button">📄 Wechselerklärung herunterladen</button>
-              <button class="primary" id="btnCreate" type="button">Bestellung erstellen</button>
-              <button class="primary" id="btnSendDashboard" type="button" style="background:#27ae60;border-color:#27ae60;">📤 An Dashboard senden</button>
+              <button class="primary" id="btnPdfDownload" type="button">PDF Download</button>
             </div>
           </div>
 
@@ -768,7 +763,7 @@
   const out = document.getElementById("output");
   const printArea = document.getElementById("printArea");
 
-  const btnPrint = document.getElementById("btnPrint");
+  const btnDownload = document.getElementById("btnPdfDownload");
   const btnSignInsured = document.getElementById("btnSignInsured");
   const btnSignCare = document.getElementById("btnSignCare");
   const signStatusInsured = document.getElementById("signStatusInsured");
@@ -1593,10 +1588,8 @@
       else renderPdfLocked();
 
       // Druck/PDF & Bestellung erst erlauben, wenn das Formular erzeugt werden darf
-      const printBtn = document.getElementById('btnPrint');
-      const createBtn = document.getElementById('btnCreate');
-      if(printBtn) printBtn.disabled = !anyConsent;
-      if(createBtn) createBtn.disabled = !anyConsent;
+      const dlBtn = document.getElementById('btnPdfDownload');
+      if(dlBtn) dlBtn.disabled = !anyConsent;
     }
     return payload;
   }
@@ -1654,24 +1647,14 @@
       next.textContent = __wechselEnabled ? 'Weiter → Wechselerklärung' : 'Wechselerklärung (nicht gewählt)';
     }
 
-    // Download-Button für Wechselerklärung passend ein/ausblenden
-    const btnWechsel = document.getElementById('btnWechsel');
-    if(btnWechsel){
-      btnWechsel.style.display = __wechselEnabled ? '' : 'none';
-    }
   }
 
   function showCurrentDoc(){
     const iframe = document.getElementById('pdfPreview');
     const openLink = document.getElementById('pdfOpenLink');
-    const btnOpen  = document.getElementById('btnOpenPdf');
     const url = currentDocUrl();
     if(iframe)    iframe.src   = withPage(url);
     if(openLink)  openLink.href = withPage(url);
-    if(btnOpen){
-      btnOpen.disabled = false;
-      btnOpen.onclick = () => window.open(withPage(url), '_blank');
-    }
     setPdfUi();
   }
 
@@ -1701,16 +1684,11 @@
   function clearPdfPreview(){
     const iframe = document.getElementById('pdfPreview');
     const status = document.getElementById('pdfStatus');
-    const btnOpen = document.getElementById('btnOpenPdf');
     const openLink = document.getElementById('pdfOpenLink');
 
     // Zeige aktuelles Dokument (statisch als Fallback)
     if(iframe) iframe.src = withPage(currentDocUrl());
 
-    if(btnOpen){
-      btnOpen.disabled = false;
-      btnOpen.onclick = () => window.open(withPage(currentDocUrl()), '_blank');
-    }
     if(openLink){
       openLink.style.display = 'inline-block';
       openLink.href = withPage(currentDocUrl());
@@ -2076,6 +2054,62 @@ try{
   }
 
   // =========================================================
+  // 1 Button: PDF Download (Anlage 2 immer + optional Wechselerklärung)
+  // - Wenn Wechselerklärung NICHT gewählt: nur Anlage 2 herunterladen
+  // - Wenn gewählt: Anlage 2 + Wechselerklärung zu EINEM PDF zusammenführen
+  // =========================================================
+  async function downloadAllPdfs(payload){
+    const { PDFDocument } = window.PDFLib || {};
+    if(!PDFDocument) throw new Error('PDFLib nicht verfügbar (CDN nicht geladen).');
+
+    // Wechselerklärung nur wenn bezugsCheck UND consent2 beide aktiv
+    const wechselEnabled = !!(payload?.insurance?.einverstaendnis?.consent2 && payload?.insurance?.bezieht_bereits_pflegehilfsmittel);
+
+    // Immer Anlage 2 erzeugen
+    const anlageBlob = await generateFilledPdf(payload);
+
+    // Wenn keine Wechselerklärung: Anlage 2 direkt laden
+    if(!wechselEnabled){
+      const url = URL.createObjectURL(anlageBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Pflegehilfsmittel_Anlage2.pdf';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>{ try{ URL.revokeObjectURL(url);}catch{} }, 2000);
+      return;
+    }
+
+    // Wechselerklärung erzeugen
+    const wechselBlob = await generateWechselPdf(payload);
+
+    // Zusammenführen in EIN PDF
+    const outDoc = await PDFDocument.create();
+
+    const anlageBytes = await anlageBlob.arrayBuffer();
+    const anlageDoc = await PDFDocument.load(anlageBytes);
+    const anlagePages = await outDoc.copyPages(anlageDoc, anlageDoc.getPageIndices());
+    anlagePages.forEach(p => outDoc.addPage(p));
+
+    const wechselBytes = await wechselBlob.arrayBuffer();
+    const wechselDoc = await PDFDocument.load(wechselBytes);
+    const wechselPages = await outDoc.copyPages(wechselDoc, wechselDoc.getPageIndices());
+    wechselPages.forEach(p => outDoc.addPage(p));
+
+    const mergedBytes = await outDoc.save();
+    const mergedBlob = new Blob([mergedBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(mergedBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'Pflegehilfsmittel_Anlage2_und_Wechselerklaerung.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>{ try{ URL.revokeObjectURL(url);}catch{} }, 2000);
+  }
+
+  // =========================================================
   // Wechselerklärung automatisch ausfüllen und herunterladen
   // =========================================================
   async function generateWechselPdf(payload) {
@@ -2168,9 +2202,6 @@ try{
       alert('Wechselerklärung wird nur erzeugt, wenn beide Häkchen gesetzt sind ("Beziehen Sie bereits..." + Marina Pflegebox).');
       return;
     }
-    const btn = document.getElementById('btnWechsel');
-    const origText = btn ? btn.textContent : '';
-    if (btn) { btn.disabled = true; btn.textContent = 'Wird erstellt …'; }
     try {
       const blob = await generateWechselPdf(payload);
       const url = URL.createObjectURL(blob);
@@ -2184,8 +2215,6 @@ try{
     } catch (err) {
       console.error('Wechselerklärung Fehler:', err);
       alert('Fehler beim Erstellen der Wechselerklärung: ' + err.message);
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = origText; }
     }
   }
 
@@ -2342,42 +2371,25 @@ try{
   document.getElementById("back3").addEventListener("click", tryBack);
   document.getElementById("back4").addEventListener("click", tryBack);
 
-  document.getElementById("btnCreate").addEventListener("click", () => {
-    renderBar();
-    if(!inBudget()) return;
-    if(!glovesSizeOk()) return;
-    const p = buildOutput(true);
-    // ✅ direkt zur Übersicht (Schritt 4) – immer mit Anlage 2 (Dok 1) beginnen
-    setStep(3);
-    goToPdfPage(1);
-    // PDF anzeigen
-    renderFilledPdfPreview(p);
-    // kein Auto-Download mehr – PDF wird im neuen Tab geöffnet
-    // downloadFilledPdf(p);
-  });
-
-  document.getElementById("btnCopy").addEventListener("click", async () => {
-    const txt = out.textContent || "{}";
-    try {
-      await navigator.clipboard.writeText(txt);
-      const prev = document.getElementById("btnCopy").textContent;
-      document.getElementById("btnCopy").textContent = "Kopiert ✅";
-      setTimeout(() => (document.getElementById("btnCopy").textContent = prev), 1000);
-    } catch {
-      alert("Kopieren nicht möglich – bitte manuell markieren und kopieren.");
+  // PDF Download (ein Button)
+  if(btnDownload) btnDownload.addEventListener('click', async () => {
+    try{
+      renderBar();
+      if(!inBudget()) return;
+      if(!glovesSizeOk()) return;
+      const p = buildOutput(false);
+      // Wenn keine Einverständnisse, keine PDF
+      const c1 = !!p?.insurance?.einverstaendnis?.consent1;
+      const c2 = !!p?.insurance?.einverstaendnis?.consent2;
+      if(!(c1 || c2)){
+        alert('Bitte aktiviere zuerst mindestens ein Einverständnis-Häkchen in Schritt 3.');
+        return;
+      }
+      await downloadAllPdfs(p);
+    }catch(e){
+      console.error(e);
+      alert('PDF Download fehlgeschlagen. Bitte erneut versuchen.');
     }
-  });
-
-  if(btnPrint) btnPrint.addEventListener('click', () => {
-    // Stelle sicher, dass die Vorschau aktuell ist
-    const p = buildOutput(false);
-    downloadFilledPdf(p);
-  });
-
-  const btnWechsel = document.getElementById('btnWechsel');
-  if(btnWechsel) btnWechsel.addEventListener('click', () => {
-    const p = buildOutput(false);
-    downloadWechselPdf(p);
   });
 
   document.getElementById("btnReset").addEventListener("click", () => {
@@ -2625,103 +2637,6 @@ const vaEl = document.getElementById('versicherungsart');
     closeSign();
   });
 
-
-  // ============================================================
-  // 📤 AN DASHBOARD SENDEN
-  // ============================================================
-  function sendToDashboard() {
-    const payload = buildOutput(false);
-
-    // Validierung
-    const v = payload.customer;
-    if (!v.vorname || !v.nachname) {
-      alert('Bitte zuerst Vor- und Nachname ausfüllen (Schritt 2).');
-      return;
-    }
-    if (!payload.items || payload.items.length === 0) {
-      alert('Bitte zuerst Produkte auswählen (Schritt 1).');
-      return;
-    }
-
-    // Daten für Dashboard aufbereiten
-    const kunde = {
-      id: 'K_' + Date.now(),
-      vorname: v.vorname || '',
-      nachname: v.nachname || '',
-      geburtsdatum: v.geburtsdatum || '',
-      pflegegrad: payload.pflegegrad || '',
-      krankenkasse: payload.insurance?.provider || '',
-      versichertennr: payload.insurance?.versichertennummer || '',
-      faxnummer: '',
-      faxbetreff: 'Pflegehilfsmittel – Antrag',
-      adresse: (v.strasse || '') + ' ' + (v.hausnr || ''),
-      plz: v.plz || '',
-      ort: v.stadt || '',
-      telefon: payload.insurance?.telefon || '',
-      email: payload.insurance?.email || '',
-      anmerkungen: v.note || '',
-      status: 'offen',
-      quelle: 'konfigurator',
-      produkte: payload.items.map((it, idx) => ({
-        name: it.name,
-        feld: 'qty_' + (idx + 1),
-        menge: it.qty
-      }))
-    };
-
-    // In localStorage speichern (Dashboard liest es von dort)
-    try {
-      const existing = JSON.parse(localStorage.getItem('marina_kunden') || '[]');
-      // Duplikat prüfen (gleicher Vor+Nachname)
-      const dupIdx = existing.findIndex(k =>
-        k.vorname === kunde.vorname && k.nachname === kunde.nachname
-      );
-      if (dupIdx >= 0) {
-        if (!confirm(`Kunde "${kunde.vorname} ${kunde.nachname}" existiert bereits. Aktualisieren?`)) return;
-        existing[dupIdx] = { ...existing[dupIdx], ...kunde };
-      } else {
-        existing.push(kunde);
-      }
-      localStorage.setItem('marina_kunden', JSON.stringify(existing));
-
-      // Aktivität loggen
-      const akt = JSON.parse(localStorage.getItem('marina_akt') || '[]');
-      akt.unshift({
-        text: `📤 <b>${kunde.vorname} ${kunde.nachname}</b> vom Konfigurator empfangen`,
-        zeit: new Date().toLocaleTimeString('de', {hour:'2-digit',minute:'2-digit'}),
-        farbe: '#27ae60'
-      });
-      if (akt.length > 15) akt.pop();
-      localStorage.setItem('marina_akt', JSON.stringify(akt));
-
-      // Erfolgsmeldung
-      const btn = document.getElementById('btnSendDashboard');
-      const orig = btn.textContent;
-      btn.textContent = '✅ Im Dashboard gespeichert!';
-      btn.style.background = '#1a7f37';
-      setTimeout(() => {
-        btn.textContent = orig;
-        btn.style.background = '#27ae60';
-      }, 3000);
-
-      // Dashboard in neuem Tab öffnen (optional)
-      if (confirm('✅ Kunde wurde ans Dashboard gesendet!\n\nDashboard jetzt öffnen?')) {
-        window.open('./dashboard.html', '_blank');
-      }
-
-    } catch (err) {
-      alert('Fehler beim Senden: ' + err.message);
-    }
-  }
-
-  const btnSendDashboard = document.getElementById('btnSendDashboard');
-  if (btnSendDashboard) {
-    btnSendDashboard.addEventListener('click', sendToDashboard);
-  }
-
-  // ============================================================
-  // END DASHBOARD KOMMUNIKATION
-  // ============================================================
 
   // Init
   document.getElementById("y").textContent = String(new Date().getFullYear());
