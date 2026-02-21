@@ -633,6 +633,7 @@
               <button class="secondary" id="btnOpenPdf" type="button">PDF öffnen</button>
               <button class="secondary" id="btnWechsel" type="button">📄 Wechselerklärung herunterladen</button>
               <button class="primary" id="btnCreate" type="button">Bestellung erstellen</button>
+              <button class="primary" id="btnSendDashboard" type="button" style="background:#27ae60;border-color:#27ae60;">📤 An Dashboard senden</button>
             </div>
           </div>
 
@@ -2624,6 +2625,103 @@ const vaEl = document.getElementById('versicherungsart');
     closeSign();
   });
 
+
+  // ============================================================
+  // 📤 AN DASHBOARD SENDEN
+  // ============================================================
+  function sendToDashboard() {
+    const payload = buildOutput(false);
+
+    // Validierung
+    const v = payload.customer;
+    if (!v.vorname || !v.nachname) {
+      alert('Bitte zuerst Vor- und Nachname ausfüllen (Schritt 2).');
+      return;
+    }
+    if (!payload.items || payload.items.length === 0) {
+      alert('Bitte zuerst Produkte auswählen (Schritt 1).');
+      return;
+    }
+
+    // Daten für Dashboard aufbereiten
+    const kunde = {
+      id: 'K_' + Date.now(),
+      vorname: v.vorname || '',
+      nachname: v.nachname || '',
+      geburtsdatum: v.geburtsdatum || '',
+      pflegegrad: payload.pflegegrad || '',
+      krankenkasse: payload.insurance?.provider || '',
+      versichertennr: payload.insurance?.versichertennummer || '',
+      faxnummer: '',
+      faxbetreff: 'Pflegehilfsmittel – Antrag',
+      adresse: (v.strasse || '') + ' ' + (v.hausnr || ''),
+      plz: v.plz || '',
+      ort: v.stadt || '',
+      telefon: payload.insurance?.telefon || '',
+      email: payload.insurance?.email || '',
+      anmerkungen: v.note || '',
+      status: 'offen',
+      quelle: 'konfigurator',
+      produkte: payload.items.map((it, idx) => ({
+        name: it.name,
+        feld: 'qty_' + (idx + 1),
+        menge: it.qty
+      }))
+    };
+
+    // In localStorage speichern (Dashboard liest es von dort)
+    try {
+      const existing = JSON.parse(localStorage.getItem('marina_kunden') || '[]');
+      // Duplikat prüfen (gleicher Vor+Nachname)
+      const dupIdx = existing.findIndex(k =>
+        k.vorname === kunde.vorname && k.nachname === kunde.nachname
+      );
+      if (dupIdx >= 0) {
+        if (!confirm(`Kunde "${kunde.vorname} ${kunde.nachname}" existiert bereits. Aktualisieren?`)) return;
+        existing[dupIdx] = { ...existing[dupIdx], ...kunde };
+      } else {
+        existing.push(kunde);
+      }
+      localStorage.setItem('marina_kunden', JSON.stringify(existing));
+
+      // Aktivität loggen
+      const akt = JSON.parse(localStorage.getItem('marina_akt') || '[]');
+      akt.unshift({
+        text: `📤 <b>${kunde.vorname} ${kunde.nachname}</b> vom Konfigurator empfangen`,
+        zeit: new Date().toLocaleTimeString('de', {hour:'2-digit',minute:'2-digit'}),
+        farbe: '#27ae60'
+      });
+      if (akt.length > 15) akt.pop();
+      localStorage.setItem('marina_akt', JSON.stringify(akt));
+
+      // Erfolgsmeldung
+      const btn = document.getElementById('btnSendDashboard');
+      const orig = btn.textContent;
+      btn.textContent = '✅ Im Dashboard gespeichert!';
+      btn.style.background = '#1a7f37';
+      setTimeout(() => {
+        btn.textContent = orig;
+        btn.style.background = '#27ae60';
+      }, 3000);
+
+      // Dashboard in neuem Tab öffnen (optional)
+      if (confirm('✅ Kunde wurde ans Dashboard gesendet!\n\nDashboard jetzt öffnen?')) {
+        window.open('./dashboard.html', '_blank');
+      }
+
+    } catch (err) {
+      alert('Fehler beim Senden: ' + err.message);
+    }
+  }
+
+  const btnSendDashboard = document.getElementById('btnSendDashboard');
+  if (btnSendDashboard) {
+    btnSendDashboard.addEventListener('click', sendToDashboard);
+  }
+
+  // ============================================================
+  // END DASHBOARD KOMMUNIKATION
+  // ============================================================
 
   // Init
   document.getElementById("y").textContent = String(new Date().getFullYear());

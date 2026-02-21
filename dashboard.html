@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marina – Order-Hub</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=DM+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+  --red: #c0392b; --red2: #e74c3c;
+  --bg: #111010; --bg2: #1a1818; --bg3: #222020;
+  --border: #2a2828; --text: #f0ede8; --muted: #6a6460; --muted2: #9a9088;
+  --green: #2ecc71; --yellow: #f39c12; --blue: #3498db;
+  --shadow: 0 4px 24px rgba(0,0,0,0.5);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
+
+/* HEADER */
+header {
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  padding: 0 28px; height: 56px;
+  display: flex; align-items: center; justify-content: space-between;
+  position: sticky; top: 0; z-index: 100;
+}
+.logo { display: flex; align-items: baseline; gap: 10px; }
+.logo-name { font-family: 'Cormorant Garamond', serif; font-size: 1.55rem; color: var(--red2); }
+.logo-sub { font-size: 0.58rem; font-weight: 600; letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+.header-right { display: flex; align-items: center; gap: 16px; }
+.api-status {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 0.73rem; font-weight: 600; padding: 4px 12px;
+  border-radius: 20px; border: 1px solid; cursor: pointer;
+  transition: all 0.2s;
+}
+.api-status.connected { color: var(--green); border-color: rgba(46,204,113,0.3); background: rgba(46,204,113,0.07); }
+.api-status.disconnected { color: var(--yellow); border-color: rgba(243,156,18,0.3); background: rgba(243,156,18,0.07); }
+.api-status.loading { color: var(--blue); border-color: rgba(52,152,219,0.3); background: rgba(52,152,219,0.07); }
+.api-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.api-dot.pulse { animation: pulse 1.5s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.header-date { font-size: 0.73rem; color: var(--muted); }
+
+/* LAYOUT */
+.app { display: flex; flex: 1; height: calc(100vh - 56px); }
+
+/* SIDEBAR */
+nav {
+  width: 200px; min-width: 200px;
+  background: var(--bg2); border-right: 1px solid var(--border);
+  padding: 20px 10px; display: flex; flex-direction: column; gap: 2px;
+}
+.nav-section { font-size: 0.58rem; font-weight: 700; letter-spacing: 2.5px; color: var(--muted); text-transform: uppercase; margin: 14px 0 5px 10px; }
+.nav-btn {
+  display: flex; align-items: center; gap: 9px;
+  padding: 9px 11px; border-radius: 7px;
+  border: none; background: none; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: 0.83rem; font-weight: 500;
+  color: var(--muted2); width: 100%; text-align: left; transition: all 0.15s;
+}
+.nav-btn:hover { background: var(--bg3); color: var(--text); }
+.nav-btn.active { background: rgba(192,57,43,0.13); color: var(--red2); font-weight: 600; border-left: 2px solid var(--red); padding-left: 9px; }
+.nav-badge { margin-left: auto; background: var(--red); color: white; font-size: 0.62rem; font-weight: 700; padding: 1px 6px; border-radius: 9px; }
+.quick-btn {
+  display: flex; align-items: center; gap: 7px;
+  padding: 8px 11px; border-radius: 7px;
+  border: 1px dashed var(--border); background: none; cursor: pointer;
+  font-family: 'DM Sans', sans-serif; font-size: 0.8rem;
+  color: var(--red2); font-weight: 600; width: 100%; margin-top: 3px; transition: all 0.15s;
+}
+.quick-btn:hover { background: rgba(192,57,43,0.1); border-color: var(--red); }
+
+/* MAIN */
+main { flex: 1; overflow-y: auto; padding: 24px 28px; }
+
+/* PAGE HEADER */
+.page-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+.page-title { font-family: 'Cormorant Garamond', serif; font-size: 1.7rem; font-weight: 700; }
+.page-sub { font-size: 0.75rem; color: var(--muted); margin-top: 2px; }
+
+/* STATS */
+.stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 14px; margin-bottom: 20px; }
+.stat-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 11px; padding: 18px 20px;
+  animation: fadeUp 0.4s ease both; transition: border-color 0.2s;
+}
+.stat-card:hover { border-color: var(--red); }
+.stat-label { font-size: 0.68rem; font-weight: 600; letter-spacing: 1.5px; color: var(--muted); text-transform: uppercase; margin-bottom: 8px; }
+.stat-value { font-family: 'Cormorant Garamond', serif; font-size: 2.2rem; font-weight: 700; line-height: 1; }
+.stat-sub { font-size: 0.71rem; color: var(--muted); margin-top: 5px; }
+.stat-sub.up { color: var(--green); }
+.stat-sub.warn { color: var(--yellow); }
+
+/* MAIN GRID */
+.main-grid { display: grid; grid-template-columns: 1fr 320px; gap: 18px; }
+
+/* CARD */
+.card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 11px; padding: 20px;
+  animation: fadeUp 0.5s ease both;
+}
+.card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.card-title { font-size: 0.82rem; font-weight: 700; color: var(--text); }
+.card-sub { font-size: 0.68rem; color: var(--muted); }
+
+/* API PANEL */
+.api-panel {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 11px; padding: 20px; margin-bottom: 20px;
+}
+.api-panel-title { font-size: 0.8rem; font-weight: 700; margin-bottom: 14px; display: flex; align-items: center; gap: 8px; }
+.api-url-row { display: flex; gap: 8px; margin-bottom: 10px; }
+.api-url-input {
+  flex: 1; padding: 8px 12px; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 7px; color: var(--text); font-family: 'DM Sans', sans-serif;
+  font-size: 0.8rem; outline: none; transition: border 0.15s;
+}
+.api-url-input:focus { border-color: var(--red); }
+.api-key-row { display: flex; gap: 8px; }
+.api-hint { font-size: 0.68rem; color: var(--muted); margin-top: 8px; line-height: 1.5; }
+.api-hint code { background: var(--bg3); padding: 1px 5px; border-radius: 4px; font-size: 0.7rem; color: var(--muted2); }
+
+/* TABLE */
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-size: 0.65rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; padding: 0 10px 9px; border-bottom: 1px solid var(--border); }
+td { padding: 11px 10px; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.82rem; }
+tr:last-child td { border-bottom: none; }
+tr.crow { cursor: pointer; transition: background 0.12s; }
+tr.crow:hover td { background: rgba(192,57,43,0.06); }
+.name-bold { font-weight: 600; }
+.sub-text { font-size: 0.68rem; color: var(--muted); margin-top: 1px; }
+.badge-aktiv { background: rgba(46,204,113,0.12); color: var(--green); padding: 2px 8px; border-radius: 20px; font-size: 0.67rem; font-weight: 700; border: 1px solid rgba(46,204,113,0.25); }
+.badge-offen { background: rgba(243,156,18,0.12); color: var(--yellow); padding: 2px 8px; border-radius: 20px; font-size: 0.67rem; font-weight: 700; border: 1px solid rgba(243,156,18,0.25); }
+.badge-neu { background: rgba(52,152,219,0.12); color: var(--blue); padding: 2px 8px; border-radius: 20px; font-size: 0.67rem; font-weight: 700; border: 1px solid rgba(52,152,219,0.25); }
+
+/* ACTIVITY */
+.act-item { display: flex; gap: 10px; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.04); }
+.act-item:last-child { border-bottom: none; }
+.act-dot { width: 7px; height: 7px; border-radius: 50%; margin-top: 5px; flex-shrink: 0; }
+.act-text { font-size: 0.78rem; color: var(--muted2); line-height: 1.4; }
+.act-text b { color: var(--text); }
+.act-time { font-size: 0.65rem; color: var(--muted); margin-top: 2px; }
+
+/* BUTTONS */
+.btn { padding: 8px 16px; border-radius: 7px; border: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.8rem; font-weight: 600; transition: all 0.15s; display: inline-flex; align-items: center; gap: 6px; }
+.btn-red { background: var(--red); color: white; }
+.btn-red:hover { background: #a93226; }
+.btn-outline { background: transparent; color: var(--muted2); border: 1px solid var(--border); }
+.btn-outline:hover { background: var(--bg3); color: var(--text); }
+.btn-blue { background: rgba(52,152,219,0.15); color: var(--blue); border: 1px solid rgba(52,152,219,0.3); }
+.btn-blue:hover { background: rgba(52,152,219,0.25); }
+.btn-sm { padding: 6px 12px; font-size: 0.74rem; }
+.btn-danger { background: rgba(192,57,43,0.12); color: var(--red2); border: 1px solid rgba(192,57,43,0.3); }
+.btn-danger:hover { background: rgba(192,57,43,0.25); }
+
+/* FORMS */
+.form-group { margin-bottom: 12px; }
+label { display: block; font-size: 0.68rem; font-weight: 600; color: var(--muted); margin-bottom: 3px; letter-spacing: 0.5px; }
+input[type=text], input[type=number], input[type=password], select, textarea {
+  width: 100%; padding: 8px 11px; border: 1px solid var(--border);
+  border-radius: 7px; font-family: 'DM Sans', sans-serif; font-size: 0.82rem;
+  background: var(--bg3); color: var(--text); outline: none; transition: border 0.15s;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--red); }
+select option { background: var(--bg2); }
+textarea { resize: vertical; min-height: 55px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+
+/* DETAIL */
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 18px; }
+.back-btn { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; font-size: 0.78rem; font-weight: 600; color: var(--muted); margin-bottom: 18px; background: none; border: none; transition: color 0.15s; font-family: 'DM Sans', sans-serif; }
+.back-btn:hover { color: var(--red2); }
+
+/* PDF */
+.pdf-preview { background: var(--bg3); border: 1px solid var(--border); border-radius: 7px; padding: 14px; font-size: 0.75rem; line-height: 1.8; color: var(--muted2); min-height: 150px; margin-bottom: 12px; }
+.pdf-preview b { color: var(--text); }
+.pdf-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+.product-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.product-row:last-child { border-bottom: none; }
+.product-name { font-weight: 600; font-size: 0.82rem; }
+.product-feld { font-size: 0.67rem; color: var(--muted); }
+.qty-field { width: 60px; text-align: center; padding: 5px 7px; }
+.budget-tag { display: inline-flex; align-items: center; gap: 5px; background: rgba(46,204,113,0.1); color: var(--green); font-weight: 700; padding: 3px 11px; border-radius: 20px; font-size: 0.72rem; border: 1px solid rgba(46,204,113,0.2); margin-top: 10px; }
+
+/* MODAL */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.65); z-index: 200; display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); }
+.modal { background: var(--bg2); border: 1px solid var(--border); border-radius: 12px; padding: 28px; width: 480px; max-width: 95vw; box-shadow: 0 20px 60px rgba(0,0,0,0.5); }
+.modal-title { font-family: 'Cormorant Garamond', serif; font-size: 1.25rem; font-weight: 700; margin-bottom: 18px; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 20px; }
+
+/* JSON VIEWER */
+.json-box { background: var(--bg3); border: 1px solid var(--border); border-radius: 7px; padding: 12px; font-family: monospace; font-size: 0.72rem; color: #7ec8a0; max-height: 200px; overflow-y: auto; white-space: pre-wrap; word-break: break-all; margin-top: 10px; }
+
+/* LOADING */
+.loading-row td { text-align: center; color: var(--muted); padding: 24px; font-size: 0.82rem; }
+.spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--blue); border-radius: 50%; animation: spin 0.7s linear infinite; margin-right: 6px; vertical-align: middle; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* MISC */
+.hidden { display: none !important; }
+.toast { position: fixed; bottom: 24px; right: 24px; background: var(--bg2); border: 1px solid var(--border); border-left: 3px solid var(--red); color: var(--text); padding: 10px 18px; border-radius: 9px; font-size: 0.81rem; font-weight: 500; z-index: 999; box-shadow: 0 8px 30px rgba(0,0,0,0.4); animation: slideIn 0.3s ease; }
+@keyframes slideIn { from{transform:translateY(10px);opacity:0} to{transform:translateY(0);opacity:1} }
+@keyframes fadeUp { from{transform:translateY(8px);opacity:0} to{transform:translateY(0);opacity:1} }
+.divider { border: none; border-top: 1px solid var(--border); margin: 14px 0; }
+.search-input { width: 100%; padding: 7px 12px; background: var(--bg3); border: 1px solid var(--border); border-radius: 7px; color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.82rem; outline: none; transition: border 0.15s; }
+.search-input:focus { border-color: var(--red); }
+.search-input::placeholder { color: var(--muted); }
+.search-row { display: flex; gap: 8px; margin-bottom: 14px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <span class="logo-name">Marina</span>
+    <span class="logo-sub">Pflegeberatung · Order-Hub</span>
+  </div>
+  <div class="header-right">
+    <span class="header-date" id="header-date"></span>
+    <span class="api-status disconnected" id="api-status-btn" onclick="showPage('api')" title="API Einstellungen">
+      <span class="api-dot"></span>
+      <span id="api-status-text">Nicht verbunden</span>
+    </span>
+  </div>
+</header>
+
+<div class="app">
+  <nav>
+    <div class="nav-section">Navigation</div>
+    <button class="nav-btn active" onclick="showPage('dashboard')" id="nav-dashboard">📊 Dashboard</button>
+    <button class="nav-btn" onclick="showPage('kunden')" id="nav-kunden">
+      👥 Kunden <span class="nav-badge" id="badge-kunden">0</span>
+    </button>
+    <button class="nav-btn" onclick="showPage('bestellungen')" id="nav-bestellungen">
+      📦 Bestellungen <span class="nav-badge" id="badge-bestellungen">0</span>
+    </button>
+    <button class="nav-btn" onclick="showPage('pdf')" id="nav-pdf">📄 PDF-Zentrale</button>
+    <button class="nav-btn" onclick="showPage('api')" id="nav-api">🔌 API-Einstellungen</button>
+
+    <div class="nav-section">Schnell-Aktionen</div>
+    <button class="quick-btn" onclick="openNewKundeModal()">＋ Neuer Kunde</button>
+    <button class="quick-btn" onclick="syncFromAPI()">↻ API Sync</button>
+  </nav>
+
+  <main>
+
+    <!-- DASHBOARD -->
+    <div id="page-dashboard">
+      <div class="page-header">
+        <div>
+          <div class="page-title">Dashboard</div>
+          <div class="page-sub">Order-Hub · Kunden aus Konfigurator empfangen & verwalten</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-blue btn-sm" onclick="syncFromAPI()">↻ Sync vom Konfigurator</button>
+          <button class="btn btn-red btn-sm" onclick="openNewKundeModal()">＋ Kunde anlegen</button>
+        </div>
+      </div>
+
+      <div class="stats-grid">
+        <div class="stat-card" style="animation-delay:0s">
+          <div class="stat-label">Kunden gesamt</div>
+          <div class="stat-value" id="stat-kunden" style="color:var(--text)">0</div>
+          <div class="stat-sub up" id="stat-kunden-sub">— aktiv</div>
+        </div>
+        <div class="stat-card" style="animation-delay:0.07s">
+          <div class="stat-label">Via API empfangen</div>
+          <div class="stat-value" id="stat-api" style="color:var(--blue)">0</div>
+          <div class="stat-sub" id="stat-api-sub">Aus Konfigurator</div>
+        </div>
+        <div class="stat-card" style="animation-delay:0.14s">
+          <div class="stat-label">Bestellungen</div>
+          <div class="stat-value" id="stat-bestellungen" style="color:var(--red2)">0</div>
+          <div class="stat-sub warn" id="stat-best-sub">— offen</div>
+        </div>
+        <div class="stat-card" style="animation-delay:0.21s">
+          <div class="stat-label">Letzter Sync</div>
+          <div class="stat-value" style="font-size:1.1rem;padding-top:8px;" id="stat-sync">—</div>
+          <div class="stat-sub" id="stat-sync-sub">Noch kein Sync</div>
+        </div>
+      </div>
+
+      <div class="main-grid">
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Kundenliste</div>
+              <div class="card-sub">Klick → Kundendetail öffnen</div>
+            </div>
+            <button class="btn btn-blue btn-sm" onclick="syncFromAPI()">↻ Sync</button>
+          </div>
+          <table>
+            <thead><tr><th>Name</th><th>Pflegegrad</th><th>Quelle</th><th>Status</th><th></th></tr></thead>
+            <tbody id="dashboard-table"></tbody>
+          </table>
+        </div>
+        <div>
+          <div class="card" style="margin-bottom:18px;">
+            <div class="card-header">
+              <div class="card-title">API Aktivität</div>
+              <div class="card-sub">Zuletzt</div>
+            </div>
+            <div id="activity-list"><div style="color:var(--muted);font-size:0.78rem;padding:8px 0;">Noch keine Aktivität.</div></div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">API Verbindung</div>
+            </div>
+            <div style="font-size:0.78rem;color:var(--muted);line-height:1.7;">
+              URL: <span id="info-api-url" style="color:var(--muted2);">Nicht konfiguriert</span><br>
+              Status: <span id="info-api-status" style="color:var(--yellow);">Nicht verbunden</span><br>
+              Kunden empfangen: <span id="info-api-count" style="color:var(--text);">0</span>
+            </div>
+            <button class="btn btn-outline btn-sm" style="margin-top:12px;width:100%;" onclick="showPage('api')">⚙ API konfigurieren</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KUNDENLISTE -->
+    <div id="page-kunden" class="hidden">
+      <div class="page-header">
+        <div><div class="page-title">Kundenliste</div><div class="page-sub">Alle Kunden · lokal & via API empfangen</div></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-blue btn-sm" onclick="syncFromAPI()">↻ Sync</button>
+          <button class="btn btn-red btn-sm" onclick="openNewKundeModal()">＋ Kunde anlegen</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="search-row">
+          <input class="search-input" id="search-input" placeholder="Suche: Name, Ort, Krankenkasse..." oninput="filterKunden()">
+          <button class="btn btn-outline btn-sm" onclick="filterKunden()">🔍</button>
+        </div>
+        <table>
+          <thead><tr><th>Name</th><th>Status</th><th></th></tr></thead>
+          <tbody id="kunden-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- DETAIL -->
+    <div id="page-detail" class="hidden">
+      <button class="back-btn" onclick="showPage('kunden')">← Zurück</button>
+      <div class="page-header">
+        <div>
+          <div class="page-title" id="detail-title">Kundendetail</div>
+          <div class="page-sub">Eckdaten · Bestellung · PDF</div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-outline btn-sm" onclick="exportJSON()">↓ JSON</button>
+          <button class="btn btn-danger btn-sm" onclick="loescheKundeAusDetail()">🗑 Löschen</button>
+          <button class="btn btn-red btn-sm" onclick="saveKunde()">💾 Speichern</button>
+        </div>
+      </div>
+      <div class="detail-grid">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Eckdaten</div></div>
+          <div class="form-row">
+            <div class="form-group"><label>Vorname *</label><input type="text" id="d-vorname"></div>
+            <div class="form-group"><label>Nachname *</label><input type="text" id="d-nachname"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Geburtsdatum</label><input type="text" id="d-geburtsdatum" placeholder="TT.MM.JJJJ"></div>
+            <div class="form-group"><label>Pflegegrad</label>
+              <select id="d-pflegegrad"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Krankenkasse</label><input type="text" id="d-krankenkasse"></div>
+            <div class="form-group"><label>Versichertennr.</label><input type="text" id="d-versichertennr"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Faxnummer</label><input type="text" id="d-faxnummer"></div>
+            <div class="form-group"><label>Fax-Betreff</label><input type="text" id="d-faxbetreff"></div>
+          </div>
+          <div class="form-group"><label>Adresse</label><input type="text" id="d-adresse"></div>
+          <div class="form-row">
+            <div class="form-group"><label>PLZ</label><input type="text" id="d-plz"></div>
+            <div class="form-group"><label>Ort</label><input type="text" id="d-ort"></div>
+          </div>
+          <div class="form-row">
+            <div class="form-group"><label>Telefon</label><input type="text" id="d-telefon"></div>
+            <div class="form-group"><label>E-Mail</label><input type="text" id="d-email"></div>
+          </div>
+          <div class="form-group"><label>Anmerkungen</label><textarea id="d-anmerkungen"></textarea></div>
+          <div class="form-group"><label>Status</label>
+            <select id="d-status"><option value="offen">⏳ Offen</option><option value="aktiv">✓ Aktiv</option><option value="inaktiv">✗ Inaktiv</option></select>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Bestellung</div><div class="card-sub">Produkte + Mengen</div></div>
+          <div id="produkt-liste"></div>
+          <button class="btn btn-outline btn-sm" style="margin-top:12px;width:100%;" onclick="addProdukt()">＋ Produkt</button>
+          <hr class="divider">
+          <div style="display:flex;justify-content:space-between;align-items:center;">
+            <span style="font-size:0.8rem;font-weight:600;">Positionen: <span id="gesamt-pos">0</span></span>
+            <span class="budget-tag">✓ Budget OK</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">PDF Vorschau</div><div class="card-sub">Demo</div></div>
+          <div class="pdf-preview">
+            <div style="font-weight:700;margin-bottom:8px;color:var(--text);">Pflegebox Bestellung</div>
+            <div id="pdf-inhalt">Daten speichern → PDF generieren.</div>
+          </div>
+          <div class="pdf-actions">
+            <button class="btn btn-outline btn-sm" onclick="generiePDF()">🔄 Neu</button>
+            <button class="btn btn-red btn-sm" onclick="speicherePDF()">🖨 Speichern</button>
+            <button class="btn btn-outline btn-sm" onclick="downloadPDF()">↓ Download</button>
+            <button class="btn btn-red btn-sm" onclick="anKasseFaxen()">📠 Faxen</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BESTELLUNGEN -->
+    <div id="page-bestellungen" class="hidden">
+      <div class="page-header">
+        <div><div class="page-title">Bestellungen</div><div class="page-sub">Alle Bestellungen</div></div>
+        <button class="btn btn-red btn-sm" onclick="openNewBestellungModal()">＋ Neue Bestellung</button>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>Kunde</th><th>Produkte</th><th>Datum</th><th>Status</th></tr></thead>
+          <tbody id="bestellungen-table"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- PDF ZENTRALE -->
+    <div id="page-pdf" class="hidden">
+      <div class="page-header"><div class="page-title">PDF-Zentrale</div></div>
+      <div class="card"><div id="pdf-liste"><p style="color:var(--muted);font-size:0.82rem;">Noch keine PDFs gespeichert.</p></div></div>
+    </div>
+
+    <!-- API EINSTELLUNGEN -->
+    <div id="page-api" class="hidden">
+      <div class="page-header">
+        <div><div class="page-title">API-Einstellungen</div><div class="page-sub">Konfigurator-Verbindung konfigurieren</div></div>
+      </div>
+
+      <div class="api-panel" style="max-width:640px;">
+        <div class="api-panel-title">🔌 Konfigurator API</div>
+
+        <div class="form-group">
+          <label>API Basis-URL *</label>
+          <div class="api-url-row">
+            <input class="api-url-input" id="api-url" placeholder="https://mein-konfigurator.de/api" value="">
+            <button class="btn btn-blue btn-sm" onclick="testAPI()">🔗 Testen</button>
+          </div>
+          <div class="api-hint">
+            Beispiel: <code>https://mein-konfigurator.de/api</code><br>
+            Das Dashboard ruft dann <code>/kunden</code> und <code>/bestellungen</code> ab.
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label>API Key (optional)</label>
+          <input type="password" id="api-key" placeholder="Bearer Token oder API Key">
+        </div>
+
+        <div class="form-group">
+          <label>Endpunkt: Kunden</label>
+          <input type="text" id="api-endpoint-kunden" placeholder="/kunden" value="/kunden">
+        </div>
+
+        <div class="form-group">
+          <label>Endpunkt: Bestellungen</label>
+          <input type="text" id="api-endpoint-bestellungen" placeholder="/bestellungen" value="/bestellungen">
+        </div>
+
+        <div class="form-group">
+          <label>Auto-Sync alle (Minuten, 0 = aus)</label>
+          <input type="number" id="api-interval" placeholder="0" value="0" min="0" max="60">
+        </div>
+
+        <div style="display:flex;gap:8px;margin-top:4px;">
+          <button class="btn btn-red" onclick="saveAPISettings()">💾 Speichern</button>
+          <button class="btn btn-blue" onclick="syncFromAPI()">↻ Jetzt synchronisieren</button>
+          <button class="btn btn-outline" onclick="loadMockData()">🧪 Demo-Daten laden</button>
+        </div>
+
+        <hr class="divider">
+        <div class="api-panel-title" style="font-size:0.75rem;margin-bottom:10px;">📋 Erwartetes JSON-Format vom Konfigurator</div>
+        <div class="json-box">{
+  "kunden": [
+    {
+      "id": "K001",
+      "vorname": "Anna",
+      "nachname": "Becker",
+      "geburtsdatum": "03.09.1956",
+      "pflegegrad": "1",
+      "krankenkasse": "TK",
+      "versichertennr": "TK-123456",
+      "faxnummer": "+49 30 123456",
+      "faxbetreff": "Pflegehilfsmittel",
+      "adresse": "Beispielweg 2",
+      "plz": "46286",
+      "ort": "Dorsten",
+      "telefon": "",
+      "email": "",
+      "anmerkungen": "",
+      "status": "offen",
+      "produkte": [
+        { "name": "Bettschutzeinlagen", "feld": "qty_1", "menge": 8 },
+        { "name": "Fingerlinge", "feld": "qty_2", "menge": 3 }
+      ]
+    }
+  ]
+}</div>
+        <div class="api-hint" style="margin-top:8px;">
+          ⚠ Stelle sicher, dass dein Konfigurator dieses Format ausgibt.<br>
+          CORS muss für diese Domain erlaubt sein, oder nutze einen lokalen Proxy.
+        </div>
+      </div>
+
+      <div class="api-panel" style="max-width:640px;margin-top:18px;">
+        <div class="api-panel-title">📝 Letzter API-Response</div>
+        <div class="json-box" id="api-last-response">Noch kein API-Aufruf.</div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- MODAL: NEUER KUNDE -->
+<div class="modal-overlay hidden" id="modal-kunde">
+  <div class="modal">
+    <div class="modal-title">Neuen Kunden anlegen</div>
+    <div class="form-row">
+      <div class="form-group"><label>Vorname *</label><input type="text" id="m-vorname"></div>
+      <div class="form-group"><label>Nachname *</label><input type="text" id="m-nachname"></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>Krankenkasse</label><input type="text" id="m-kasse"></div>
+      <div class="form-group"><label>Pflegegrad</label>
+        <select id="m-pflegegrad"><option value="">—</option><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option></select>
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>PLZ</label><input type="text" id="m-plz"></div>
+      <div class="form-group"><label>Ort</label><input type="text" id="m-ort"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-kunde')">Abbrechen</button>
+      <button class="btn btn-red" onclick="createKunde()">Anlegen</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: NEUE BESTELLUNG -->
+<div class="modal-overlay hidden" id="modal-bestellung">
+  <div class="modal">
+    <div class="modal-title">Neue Bestellung</div>
+    <div class="form-group"><label>Kunde *</label><select id="m-b-kunde" style="width:100%;"></select></div>
+    <div class="form-group"><label>Produkte</label><input type="text" id="m-b-produkte" placeholder="Bettschutzeinlagen, Fingerlinge"></div>
+    <div class="modal-actions">
+      <button class="btn btn-outline" onclick="closeModal('modal-bestellung')">Abbrechen</button>
+      <button class="btn btn-red" onclick="createBestellung()">Anlegen</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+//  DATEN & KONFIGURATION
+// ============================================================
+let kunden = JSON.parse(localStorage.getItem('marina_kunden') || '[]');
+let bestellungen = JSON.parse(localStorage.getItem('marina_bestellungen') || '[]');
+let pdfs = JSON.parse(localStorage.getItem('marina_pdfs') || '[]');
+let aktivitaeten = JSON.parse(localStorage.getItem('marina_akt') || '[]');
+let apiSettings = JSON.parse(localStorage.getItem('marina_api') || '{}');
+let currentKundeIdx = null;
+let syncTimer = null;
+let apiKundenCount = parseInt(localStorage.getItem('marina_api_count') || '0');
+
+function saveData() {
+  localStorage.setItem('marina_kunden', JSON.stringify(kunden));
+  localStorage.setItem('marina_bestellungen', JSON.stringify(bestellungen));
+  localStorage.setItem('marina_pdfs', JSON.stringify(pdfs));
+  localStorage.setItem('marina_akt', JSON.stringify(aktivitaeten));
+  localStorage.setItem('marina_api_count', apiKundenCount);
+}
+
+function addAkt(text, farbe = '#e74c3c') {
+  aktivitaeten.unshift({ text, zeit: new Date().toLocaleTimeString('de', {hour:'2-digit',minute:'2-digit'}), farbe });
+  if (aktivitaeten.length > 15) aktivitaeten.pop();
+  saveData();
+}
+
+// ============================================================
+//  API EINSTELLUNGEN
+// ============================================================
+function saveAPISettings() {
+  apiSettings = {
+    url: document.getElementById('api-url').value.trim().replace(/\/$/, ''),
+    key: document.getElementById('api-key').value.trim(),
+    endpointKunden: document.getElementById('api-endpoint-kunden').value.trim() || '/kunden',
+    endpointBestellungen: document.getElementById('api-endpoint-bestellungen').value.trim() || '/bestellungen',
+    interval: parseInt(document.getElementById('api-interval').value) || 0,
+  };
+  localStorage.setItem('marina_api', JSON.stringify(apiSettings));
+  setupAutoSync();
+  updateAPIStatusUI();
+  toast('✅ API-Einstellungen gespeichert!');
+}
+
+function loadAPISettings() {
+  if (apiSettings.url) document.getElementById('api-url').value = apiSettings.url;
+  if (apiSettings.key) document.getElementById('api-key').value = apiSettings.key;
+  if (apiSettings.endpointKunden) document.getElementById('api-endpoint-kunden').value = apiSettings.endpointKunden;
+  if (apiSettings.endpointBestellungen) document.getElementById('api-endpoint-bestellungen').value = apiSettings.endpointBestellungen;
+  if (apiSettings.interval !== undefined) document.getElementById('api-interval').value = apiSettings.interval;
+}
+
+function updateAPIStatusUI() {
+  const btn = document.getElementById('api-status-btn');
+  const txt = document.getElementById('api-status-text');
+  const infoUrl = document.getElementById('info-api-url');
+  const infoStatus = document.getElementById('info-api-status');
+
+  if (apiSettings.url) {
+    infoUrl.textContent = apiSettings.url;
+    btn.className = 'api-status connected';
+    btn.querySelector('.api-dot').className = 'api-dot pulse';
+    txt.textContent = 'API konfiguriert';
+    infoStatus.textContent = 'Konfiguriert';
+    infoStatus.style.color = 'var(--green)';
+  } else {
+    infoUrl.textContent = 'Nicht konfiguriert';
+    btn.className = 'api-status disconnected';
+    btn.querySelector('.api-dot').className = 'api-dot';
+    txt.textContent = 'Nicht verbunden';
+    infoStatus.textContent = 'Nicht verbunden';
+    infoStatus.style.color = 'var(--yellow)';
+  }
+  document.getElementById('info-api-count').textContent = apiKundenCount;
+}
+
+// ============================================================
+//  API SYNC
+// ============================================================
+async function syncFromAPI() {
+  if (!apiSettings.url) {
+    toast('⚠ Bitte zuerst API-URL konfigurieren!');
+    showPage('api');
+    return;
+  }
+
+  const btn = document.getElementById('api-status-btn');
+  btn.className = 'api-status loading';
+  btn.querySelector('.api-dot').className = 'api-dot pulse';
+  document.getElementById('api-status-text').textContent = 'Synchronisiert...';
+
+  try {
+    const headers = { 'Content-Type': 'application/json' };
+    if (apiSettings.key) headers['Authorization'] = `Bearer ${apiSettings.key}`;
+
+    const url = apiSettings.url + (apiSettings.endpointKunden || '/kunden');
+    const response = await fetch(url, { headers });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+
+    const data = await response.json();
+    document.getElementById('api-last-response').textContent = JSON.stringify(data, null, 2);
+
+    // Kunden aus API verarbeiten
+    const apiKunden = data.kunden || data || [];
+    let neuCount = 0;
+
+    apiKunden.forEach(k => {
+      const existIdx = kunden.findIndex(x => x.id === k.id || (x.vorname === k.vorname && x.nachname === k.nachname));
+      const kunde = {
+        id: k.id || Date.now().toString(),
+        vorname: k.vorname || '',
+        nachname: k.nachname || '',
+        geburtsdatum: k.geburtsdatum || '',
+        pflegegrad: k.pflegegrad || '',
+        krankenkasse: k.krankenkasse || '',
+        versichertennr: k.versichertennr || '',
+        faxnummer: k.faxnummer || '',
+        faxbetreff: k.faxbetreff || '',
+        adresse: k.adresse || '',
+        plz: k.plz || '',
+        ort: k.ort || '',
+        telefon: k.telefon || '',
+        email: k.email || '',
+        anmerkungen: k.anmerkungen || '',
+        status: k.status || 'offen',
+        produkte: k.produkte || [],
+        quelle: 'api'
+      };
+      if (existIdx >= 0) {
+        kunden[existIdx] = { ...kunden[existIdx], ...kunde };
+      } else {
+        kunden.push(kunde);
+        neuCount++;
+        apiKundenCount++;
+      }
+    });
+
+    saveData();
+    updateAPIStatusUI();
+    document.getElementById('stat-sync').textContent = new Date().toLocaleTimeString('de', {hour:'2-digit',minute:'2-digit'});
+    document.getElementById('stat-sync-sub').textContent = `${neuCount} neu, ${apiKunden.length} gesamt`;
+    addAkt(`↻ Sync: <b>${neuCount} neue</b> Kunden vom Konfigurator`, '#3498db');
+
+    btn.className = 'api-status connected';
+    document.getElementById('api-status-text').textContent = 'Verbunden';
+
+    renderDashboard();
+    updateBadges();
+    toast(`✅ Sync erfolgreich! ${neuCount} neue Kunden empfangen.`);
+
+  } catch (err) {
+    document.getElementById('api-last-response').textContent = `FEHLER: ${err.message}`;
+    btn.className = 'api-status disconnected';
+    btn.querySelector('.api-dot').className = 'api-dot';
+    document.getElementById('api-status-text').textContent = 'Fehler';
+    addAkt(`❌ API Fehler: ${err.message}`, '#e74c3c');
+    toast(`❌ API Fehler: ${err.message}`);
+  }
+}
+
+async function testAPI() {
+  const url = document.getElementById('api-url').value.trim();
+  if (!url) { toast('⚠ Bitte URL eingeben!'); return; }
+
+  document.getElementById('api-last-response').textContent = 'Verbinde...';
+  try {
+    const key = document.getElementById('api-key').value.trim();
+    const headers = {};
+    if (key) headers['Authorization'] = `Bearer ${key}`;
+    const ep = document.getElementById('api-endpoint-kunden').value || '/kunden';
+    const r = await fetch(url.replace(/\/$/, '') + ep, { headers });
+    const data = await r.json();
+    document.getElementById('api-last-response').textContent = JSON.stringify(data, null, 2);
+    toast(`✅ Verbindung OK! Status: ${r.status}`);
+  } catch (e) {
+    document.getElementById('api-last-response').textContent = `Fehler: ${e.message}`;
+    toast(`❌ Verbindung fehlgeschlagen: ${e.message}`);
+  }
+}
+
+function setupAutoSync() {
+  if (syncTimer) clearInterval(syncTimer);
+  if (apiSettings.interval > 0) {
+    syncTimer = setInterval(syncFromAPI, apiSettings.interval * 60000);
+    addAkt(`⏱ Auto-Sync alle ${apiSettings.interval} Min. aktiviert`, '#3498db');
+  }
+}
+
+// ============================================================
+//  MOCK / DEMO DATEN
+// ============================================================
+function loadMockData() {
+  const mockResponse = {
+    kunden: [
+      { id:'K001', vorname:'Anna', nachname:'Becker', geburtsdatum:'03.09.1956', pflegegrad:'1', krankenkasse:'TK', versichertennr:'TK-123456', faxnummer:'+49 30 123456', faxbetreff:'Pflegehilfsmittel', adresse:'Beispielweg 2', plz:'46286', ort:'Dorsten', telefon:'', email:'', anmerkungen:'', status:'offen', produkte:[{name:'Bettschutzeinlagen',feld:'qty_1',menge:8},{name:'Fingerlinge',feld:'qty_2',menge:3},{name:'Einmalhandschuhe',feld:'qty_3',menge:50}], quelle:'api' },
+      { id:'K002', vorname:'Max', nachname:'Müller', geburtsdatum:'15.06.1948', pflegegrad:'2', krankenkasse:'AOK', versichertennr:'AOK-789012', faxnummer:'+49 201 123456', faxbetreff:'Pflegehilfsmittel', adresse:'Musterstr. 5', plz:'45770', ort:'Marl', telefon:'', email:'', anmerkungen:'', status:'aktiv', produkte:[{name:'Bettschutzeinlagen',feld:'qty_1',menge:8},{name:'Einmalhandschuhe',feld:'qty_3',menge:50}], quelle:'api' },
+      { id:'K003', vorname:'Lieselotte', nachname:'Schmidt', geburtsdatum:'22.03.1940', pflegegrad:'3', krankenkasse:'Barmer', versichertennr:'BAR-445566', faxnummer:'+49 201 654321', faxbetreff:'Antrag Pflegehilfsmittel', adresse:'Gartenstr. 12', plz:'45768', ort:'Marl', telefon:'02365 123456', email:'', anmerkungen:'Rollstuhlfahrerin', status:'aktiv', produkte:[{name:'Einmalhandschuhe',feld:'qty_1',menge:100},{name:'Mundschutz',feld:'qty_2',menge:20}], quelle:'api' },
+    ]
+  };
+
+  document.getElementById('api-last-response').textContent = JSON.stringify(mockResponse, null, 2);
+
+  let neuCount = 0;
+  mockResponse.kunden.forEach(k => {
+    const existIdx = kunden.findIndex(x => x.id === k.id);
+    if (existIdx >= 0) { kunden[existIdx] = k; }
+    else { kunden.push(k); neuCount++; apiKundenCount++; }
+  });
+
+  bestellungen = [
+    { kundeIdx: 0, produkte: 'Bettschutzeinlagen, Fingerlinge', datum: '28.01.2026', status: 'offen' },
+    { kundeIdx: 1, produkte: 'Bettschutzeinlagen, Einmalhandschuhe', datum: '01.02.2026', status: 'aktiv' },
+  ];
+
+  saveData();
+  addAkt(`🧪 Demo-Daten geladen: <b>${neuCount} Kunden</b>`, '#3498db');
+  document.getElementById('stat-sync').textContent = new Date().toLocaleTimeString('de', {hour:'2-digit',minute:'2-digit'});
+  document.getElementById('stat-sync-sub').textContent = `${neuCount} neue Demo-Kunden`;
+  renderDashboard(); updateBadges(); updateAPIStatusUI();
+  toast(`✅ ${neuCount} Demo-Kunden geladen!`);
+}
+
+// ============================================================
+//  PAGES
+// ============================================================
+const PAGES = ['dashboard','kunden','bestellungen','pdf','api','detail'];
+function showPage(page) {
+  PAGES.forEach(p => {
+    document.getElementById('page-'+p).classList.add('hidden');
+    const n = document.getElementById('nav-'+p);
+    if (n) n.classList.remove('active');
+  });
+  document.getElementById('page-'+page).classList.remove('hidden');
+  const nav = document.getElementById('nav-'+page);
+  if (nav) nav.classList.add('active');
+  if (page === 'dashboard') renderDashboard();
+  if (page === 'kunden') renderKunden();
+  if (page === 'bestellungen') renderBestellungen();
+  if (page === 'pdf') renderPDF();
+  if (page === 'api') loadAPISettings();
+  updateBadges();
+}
+
+// ============================================================
+//  RENDER FUNKTIONEN
+// ============================================================
+function renderDashboard() {
+  document.getElementById('stat-kunden').textContent = kunden.length;
+  document.getElementById('stat-kunden-sub').textContent = kunden.filter(k=>k.status==='aktiv').length + ' aktiv';
+  document.getElementById('stat-api').textContent = apiKundenCount;
+  document.getElementById('stat-bestellungen').textContent = bestellungen.length;
+  document.getElementById('stat-best-sub').textContent = bestellungen.filter(b=>b.status==='offen').length + ' offen';
+
+  const tbody = document.getElementById('dashboard-table');
+  tbody.innerHTML = kunden.slice(0,8).map((k) => {
+    const i = kunden.indexOf(k);
+    return `<tr class="crow">
+      <td onclick="openDetail(${i})"><div class="name-bold">${k.vorname} ${k.nachname}</div><div class="sub-text">${k.krankenkasse||''} · ${k.ort||''}</div></td>
+      <td onclick="openDetail(${i})">PG ${k.pflegegrad||'—'}</td>
+      <td onclick="openDetail(${i})">${k.quelle==='api'?'<span class="badge-neu">🔌 API</span>':'<span style="font-size:0.67rem;color:var(--muted)">manuell</span>'}</td>
+      <td onclick="openDetail(${i})">${k.status==='aktiv'?'<span class="badge-aktiv">✓ aktiv</span>':'<span class="badge-offen">⏳ offen</span>'}</td>
+      <td><button class="btn btn-danger btn-sm" onclick="event.stopPropagation();loescheKunde(${i})">🗑</button></td>
+    </tr>`;
+  }).join('') || `<tr class="loading-row"><td colspan="5">Noch keine Kunden. Klick "Sync" oder lade Demo-Daten.</td></tr>`;
+
+  document.getElementById('activity-list').innerHTML = aktivitaeten.slice(0,6).map(a =>
+    `<div class="act-item">
+      <div class="act-dot" style="background:${a.farbe}"></div>
+      <div><div class="act-text">${a.text}</div><div class="act-time">${a.zeit}</div></div>
+    </div>`).join('') || '<div style="color:var(--muted);font-size:0.75rem;padding:6px 0;">Noch keine Aktivität.</div>';
+}
+
+function renderKunden(filter = '') {
+  const f = filter.toLowerCase();
+  const list = kunden.filter(k => !f || (k.vorname+' '+k.nachname+' '+k.ort+' '+k.krankenkasse).toLowerCase().includes(f));
+  document.getElementById('kunden-table').innerHTML = list.map(k => {
+    const i = kunden.indexOf(k);
+    const statusBadge = k.status==='aktiv' ? '<span class="badge-aktiv">✓ aktiv</span>' : '<span class="badge-offen">⏳ offen</span>';
+    return `<tr class="crow">
+      <td onclick="openDetail(${i})">
+        <div class="name-bold">${k.vorname} ${k.nachname}</div>
+        <div class="sub-text">${k.krankenkasse||''} · PG ${k.pflegegrad||'—'} · ${k.ort||''}</div>
+      </td>
+      <td onclick="openDetail(${i})" style="white-space:nowrap;">${statusBadge}</td>
+      <td style="white-space:nowrap;">
+        <button class="btn btn-danger btn-sm" onclick="event.stopPropagation();loescheKunde(${i})" style="white-space:nowrap;">🗑 Löschen</button>
+      </td>
+    </tr>`;
+  }).join('') || `<tr class="loading-row"><td colspan="3">Keine Kunden gefunden.</td></tr>`;
+}
+
+function filterKunden() { renderKunden(document.getElementById('search-input').value); }
+
+function openDetail(idx) {
+  currentKundeIdx = idx;
+  const k = kunden[idx];
+  document.getElementById('detail-title').textContent = k.vorname + ' ' + k.nachname;
+  ['vorname','nachname','geburtsdatum','pflegegrad','krankenkasse','versichertennr','faxnummer','faxbetreff','adresse','plz','ort','telefon','email','anmerkungen','status'].forEach(f => {
+    const el = document.getElementById('d-'+f); if (el) el.value = k[f]||'';
+  });
+  renderProdukte(); generiePDFVorschau();
+  showPage('detail');
+  document.getElementById('nav-kunden').classList.add('active');
+}
+
+function renderProdukte() {
+  const k = kunden[currentKundeIdx];
+  const list = k.produkte||[];
+  document.getElementById('gesamt-pos').textContent = list.length;
+  document.getElementById('produkt-liste').innerHTML = list.map((p,i) =>
+    `<div class="product-row">
+      <div><div class="product-name">${p.name}</div><div class="product-feld">Feld: ${p.feld}</div></div>
+      <div style="display:flex;align-items:center;gap:7px;">
+        <input type="number" class="search-input qty-field" value="${p.menge}" min="0" onchange="updateMenge(${i},this.value)">
+        <button style="background:none;border:none;cursor:pointer;color:var(--muted);" onclick="removeProdukt(${i})">✕</button>
+      </div>
+    </div>`).join('');
+}
+
+function loescheKunde(idx) {
+  const k = kunden[idx];
+  if (!k) { toast('⚠ Kunde nicht gefunden!'); return; }
+  if (!confirm(`Kunden "${k.vorname} ${k.nachname}" wirklich löschen?`)) return;
+  const name = `${k.vorname} ${k.nachname}`;
+  kunden.splice(idx, 1);
+  bestellungen = bestellungen
+    .filter(b => b.kundeIdx !== idx)
+    .map(b => ({ ...b, kundeIdx: b.kundeIdx > idx ? b.kundeIdx - 1 : b.kundeIdx }));
+  addAkt(`🗑 <b>${name}</b> gelöscht`, '#e74c3c');
+  saveData();
+  renderDashboard();
+  renderKunden(document.getElementById('search-input')?.value || '');
+  updateBadges();
+  toast(`🗑 "${name}" wurde gelöscht.`);
+}
+
+function loescheKundeAusDetail() {
+  loescheKunde(currentKundeIdx);
+  showPage('kunden');
+}
+
+function removeProdukt(i) { kunden[currentKundeIdx].produkte.splice(i,1); renderProdukte(); }
+function addProdukt() {
+  const name = prompt('Produktname:'); if (!name) return;
+  const menge = parseInt(prompt('Menge:')||'0');
+  const k = kunden[currentKundeIdx]; k.produkte = k.produkte||[];
+  k.produkte.push({name, feld:'qty_'+(k.produkte.length+1), menge});
+  renderProdukte();
+}
+
+function saveKunde() {
+  const k = kunden[currentKundeIdx];
+  ['vorname','nachname','geburtsdatum','pflegegrad','krankenkasse','versichertennr','faxnummer','faxbetreff','adresse','plz','ort','telefon','email','anmerkungen','status'].forEach(f => {
+    const el = document.getElementById('d-'+f); if (el) k[f] = el.value;
+  });
+  saveData(); generiePDFVorschau(); updateBadges();
+  addAkt(`💾 <b>${k.vorname} ${k.nachname}</b> gespeichert`, '#2ecc71');
+  toast('✅ Gespeichert!');
+}
+
+// PDF
+function generiePDFVorschau() {
+  const k = kunden[currentKundeIdx];
+  document.getElementById('pdf-inhalt').innerHTML =
+    `<b>Kunde:</b> ${k.vorname} ${k.nachname}<br>
+     <b>Geburtsdatum:</b> ${k.geburtsdatum||'—'}<br>
+     <b>Krankenkasse:</b> ${k.krankenkasse||'—'} · ${k.versichertennr||'—'}<br>
+     <b>Adresse:</b> ${k.adresse||'—'}, ${k.plz||''} ${k.ort||''}<br>
+     <b>Pflegegrad:</b> ${k.pflegegrad||'—'}<br><br>
+     <b>Bestellung:</b><br>${(k.produkte||[]).map(p=>`&nbsp;&nbsp;• ${p.name}: ${p.menge} Stk.`).join('<br>')}<br><br>
+     <i style="color:var(--muted)">Demo-Vorschau</i>`;
+}
+function generiePDF() { saveKunde(); toast('🔄 Generiert!'); }
+function speicherePDF() {
+  saveKunde();
+  const k = kunden[currentKundeIdx];
+  pdfs.push({ kunde: k.vorname+' '+k.nachname, datum: new Date().toLocaleDateString('de'), datei:`PDF_${k.nachname}_${Date.now()}.pdf` });
+  saveData(); updateBadges(); addAkt(`📄 PDF gespeichert: <b>${k.nachname}</b>`, '#2ecc71');
+  toast('🖨 PDF gespeichert!');
+}
+function downloadPDF() {
+  saveKunde();
+  const k = kunden[currentKundeIdx];
+  const blob = new Blob([document.getElementById('pdf-inhalt').innerText],{type:'text/plain'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `Bestellung_${k.nachname}.txt`; a.click();
+  toast('↓ Download gestartet!');
+}
+function anKasseFaxen() {
+  const k = kunden[currentKundeIdx];
+  alert(`📠 Fax an: ${k.faxnummer||'—'}\nBetreff: ${k.faxbetreff||'—'}\n\n(In Produktionsversion: echter Fax-Versand)`);
+  addAkt(`📠 Fax für <b>${k.vorname} ${k.nachname}</b>`, '#f39c12');
+  toast('📠 Fax-Auftrag erstellt!');
+}
+function exportJSON() {
+  const blob = new Blob([JSON.stringify(kunden[currentKundeIdx],null,2)],{type:'application/json'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `Kunde_${kunden[currentKundeIdx].nachname}.json`; a.click();
+}
+
+// BESTELLUNGEN
+function renderBestellungen() {
+  document.getElementById('bestellungen-table').innerHTML = bestellungen.map(b => {
+    const k = kunden[b.kundeIdx]||{};
+    return `<tr><td><b>${k.vorname||''} ${k.nachname||''}</b></td><td>${b.produkte}</td><td>${b.datum}</td>
+      <td>${b.status==='aktiv'?'<span class="badge-aktiv">✓ aktiv</span>':'<span class="badge-offen">⏳ offen</span>'}</td></tr>`;
+  }).join('') || `<tr class="loading-row"><td colspan="4">Keine Bestellungen.</td></tr>`;
+}
+
+// PDF ZENTRALE
+function renderPDF() {
+  document.getElementById('pdf-liste').innerHTML = pdfs.length
+    ? pdfs.map(p=>`<div style="padding:9px 0;border-bottom:1px solid var(--border);font-size:0.8rem;"><b style="color:var(--text)">${p.datei}</b> — ${p.kunde} — ${p.datum}</div>`).join('')
+    : '<p style="color:var(--muted);font-size:0.8rem;">Noch keine PDFs.</p>';
+}
+
+// MODALS
+function openNewKundeModal() { document.getElementById('modal-kunde').classList.remove('hidden'); }
+function openNewBestellungModal() {
+  document.getElementById('m-b-kunde').innerHTML = kunden.map((k,i)=>`<option value="${i}">${k.vorname} ${k.nachname}</option>`).join('');
+  document.getElementById('modal-bestellung').classList.remove('hidden');
+}
+function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+
+function createKunde() {
+  const v = document.getElementById('m-vorname').value.trim();
+  const n = document.getElementById('m-nachname').value.trim();
+  if (!v||!n) { alert('Bitte Vor- und Nachname eingeben.'); return; }
+  kunden.push({ id: Date.now().toString(), vorname:v, nachname:n, krankenkasse:document.getElementById('m-kasse').value, pflegegrad:document.getElementById('m-pflegegrad').value, plz:document.getElementById('m-plz').value, ort:document.getElementById('m-ort').value, status:'offen', produkte:[], geburtsdatum:'', versichertennr:'', faxnummer:'', faxbetreff:'', adresse:'', telefon:'', email:'', anmerkungen:'', quelle:'manuell' });
+  saveData(); closeModal('modal-kunde'); renderDashboard(); updateBadges();
+  addAkt(`👤 <b>${v} ${n}</b> manuell angelegt`, '#e74c3c');
+  ['m-vorname','m-nachname','m-kasse','m-plz','m-ort'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('m-pflegegrad').value='';
+  toast('✅ Kunde angelegt!');
+}
+
+function createBestellung() {
+  const idx = parseInt(document.getElementById('m-b-kunde').value);
+  const produkte = document.getElementById('m-b-produkte').value.trim()||'—';
+  bestellungen.push({kundeIdx:idx, produkte, datum:new Date().toLocaleDateString('de'), status:'offen'});
+  saveData(); closeModal('modal-bestellung'); updateBadges();
+  addAkt(`📦 Bestellung für <b>${kunden[idx]?.vorname} ${kunden[idx]?.nachname}</b>`, '#f39c12');
+  toast('✅ Bestellung angelegt!');
+}
+
+// BADGES & TOAST
+function updateBadges() {
+  document.getElementById('badge-kunden').textContent = kunden.length;
+  document.getElementById('badge-bestellungen').textContent = bestellungen.length;
+}
+
+function toast(msg) {
+  const t = document.createElement('div'); t.className = 'toast'; t.textContent = msg;
+  document.body.appendChild(t); setTimeout(()=>t.remove(), 2800);
+}
+
+// ============================================================
+//  INIT
+// ============================================================
+document.getElementById('header-date').textContent = new Date().toLocaleDateString('de', {weekday:'short',day:'numeric',month:'short',year:'numeric'});
+updateAPIStatusUI();
+renderDashboard();
+updateBadges();
+setupAutoSync();
+
+// ============================================================
+// 🔗 KONFIGURATOR-VERBINDUNG: Automatisch neue Kunden erkennen
+// ============================================================
+// Wenn der Konfigurator (index.html) im gleichen Ordner liegt,
+// werden neue Kunden via localStorage automatisch angezeigt.
+let _lastKundenCount = kunden.length;
+
+function checkKonfiguratorUpdates() {
+  const fresh = JSON.parse(localStorage.getItem('marina_kunden') || '[]');
+  if (fresh.length !== _lastKundenCount) {
+    const diff = fresh.length - _lastKundenCount;
+    _lastKundenCount = fresh.length;
+    kunden = fresh;
+    renderDashboard();
+    updateBadges();
+    if (diff > 0) {
+      toast(`📤 ${diff} neue(r) Kunde(n) vom Konfigurator empfangen!`);
+    }
+  }
+}
+
+// Alle 2 Sekunden prüfen ob neue Daten vom Konfigurator kommen
+setInterval(checkKonfiguratorUpdates, 2000);
+
+// Konfigurator-Button in der Sidebar
+const konfBtn = document.createElement('button');
+konfBtn.className = 'quick-btn';
+konfBtn.innerHTML = '🔧 Konfigurator öffnen';
+konfBtn.onclick = () => window.open('./index.html', '_blank');
+document.querySelector('nav').appendChild(konfBtn);
+
+</script>
+</body>
+</html>
