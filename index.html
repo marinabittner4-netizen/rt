@@ -1950,11 +1950,7 @@ setTextSafe('vers_10', versValue);
   //    oder eine digitale Unterschrift vorhanden ist.
   checkSafe('chk_form_1', wantsConsultChecks);
 
-// Genehmigung: gesetzlich / Beihilfe
-  const isBeihilfe = !!ins.beihilfe;
-  checkSafe('genehm_pg54', !isBeihilfe);
-  checkSafe('genehm_pg54_beihilfe', isBeihilfe);
-
+  // Genehmigung: Verbindung entfernt (genehm_* wird nicht mehr automatisch gesetzt)
   // Pflegekassen-Genehmigungsfelder hart sperren (nicht anklickbar)
   try {
     form.getFields().forEach(f => {
