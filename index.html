@@ -2047,131 +2047,61 @@ if(status) status.textContent = (__wechselEnabled ? 'Bestellformular eingebettet
   }
 
   async function generateBestellformularPdf(payload){
-    const { PDFDocument, StandardFonts } = window.PDFLib || {};
+    const { PDFDocument } = window.PDFLib || {};
     if(!PDFDocument) throw new Error('PDFLib nicht verfügbar (CDN nicht geladen).');
 
-    const pdfDoc = await PDFDocument.create();
-    const page = pdfDoc.addPage([595.28, 841.89]); // A4
+    // Statisches Template laden (kannst du mit PDF-XChange bearbeiten)
+    const tplRes = await fetch('bestellformular.pdf', { cache: 'no-store' });
+    if(!tplRes.ok) throw new Error('bestellformular.pdf nicht gefunden.');
+    const tplBytes = await tplRes.arrayBuffer();
 
-    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
-    const fontBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    const pdfDoc = await PDFDocument.load(tplBytes);
+    const form = pdfDoc.getForm();
 
     const c = payload?.customer || {};
     const today = new Date();
-
-    const left = 56; // ~2cm
-    const right = 595.28 - 56;
-    const top = 841.89 - 56;
-
-    const small = 9;
-    const normal = 10;
-
-    // Kopf links
-    page.drawText('Pflegebox Marina - Hervesterstr.16 - 46286 Dorsten', { x:left, y:top, size:small, font });
+    const dateStr = _fmtDate(today);
 
     // Kundenanschrift
-    page.drawText('Kunden Anschrift', { x:left, y:top-40, size:small, font:fontBold });
     const name = `${(c.vorname||'').trim()} ${(c.nachname||'').trim()}`.trim();
     const street = `${(c.strasse||'').trim()} ${(c.hausnr||'').trim()}`.trim();
     const city = `${(c.plz||'').trim()} ${(c.stadt||'').trim()}`.trim();
-    const addrLines = [name, street, city].filter(Boolean);
-    const addrY = top-62;
-    addrLines.forEach((ln, i)=>{
-      page.drawText(ln, { x:left, y:addrY - i*13, size:normal, font });
-    });
 
-    // Firmenblock rechts oben
-    const firmX = right-140;
-    page.drawText('Pflegebox Marina', { x:firmX, y:top-8, size:normal, font:fontBold });
-    page.drawText('Hervesterstr.16', { x:firmX, y:top-22, size:normal, font });
-    page.drawText('46286 Dorsten', { x:firmX, y:top-36, size:normal, font });
+    const safeSet = (fieldName, value) => {
+      try{
+        const f = form.getTextField(fieldName);
+        f.setText(String(value ?? ''));
+      }catch(e){
+        // Feld evtl. im Template gelöscht/umbenannt – dann einfach ignorieren
+      }
+    };
 
-    // Titel
-    page.drawText('Lieferschein', { x:left, y:top-200, size:22, font:fontBold });
+    safeSet('K_NAME', name);
+    safeSet('K_STRASSE', street);
+    safeSet('K_ORT', city);
 
     // Meta rechts
-    const metaX = right-170;
-    const metaY = top-165;
-    const lsNr = _lieferscheinNr(payload);
-    const dateStr = _fmtDate(today);
-    const meta = [
-      ['Lieferschein-Nr:', lsNr],
-      ['Datum:', dateStr],
-      ['Lieferdatum:', dateStr],
-      ['Kunden-Nr:', _customerNr(payload)],
-    ];
-    meta.forEach((m, i)=>{
-      const y = metaY - i*13;
-      page.drawText(m[0], { x:metaX, y, size:small, font:fontBold });
-      page.drawText(String(m[1]||''), { x:metaX+90, y, size:small, font });
-    });
+    safeSet('LS_NR', _lieferscheinNr(payload));
+    safeSet('DATUM', dateStr);
+    safeSet('LIEFERDATUM', dateStr);
+    safeSet('KUNDEN_NR', _customerNr(payload));
 
-    // Tabellenkopf
-    const tableY = top-260;
-    page.drawText('Pos.', { x:left, y:tableY, size:small, font:fontBold });
-    page.drawText('Pflegepositions-Nr.', { x:left+45, y:tableY, size:small, font:fontBold });
-    page.drawText('Menge', { x:left+170, y:tableY, size:small, font:fontBold });
-    page.drawText('Bezeichnung', { x:left+220, y:tableY, size:small, font:fontBold });
-    page.drawLine({ start:{x:left, y:tableY-10}, end:{x:right, y:tableY-10}, thickness:1 });
+    // Positionen
+    const rows = _orderRows(payload) || [];
+    for(let i=0;i<12;i++){
+      const r = rows[i];
+      const idx = String(i+1).padStart(2,'0');
+      safeSet(`POS_${idx}`, r ? String(i+1) : '');
+      safeSet(`PN_${idx}`, r ? (r.pflegepos || '') : '');
+      safeSet(`MENGE_${idx}`, r ? (r.menge != null ? String(r.menge) : '') : '');
+      safeSet(`BEZ_${idx}`, r ? (r.bez || '') : '');
+    }
 
-    const rows = _orderRows(payload);
-    let y = tableY - 34;
-    const rowH = 16;
-    rows.slice(0, 18).forEach((r, idx)=>{
-      page.drawText(String(idx+1), { x:left, y, size:small, font });
-      page.drawText(String(r.pflegepos||''), { x:left+45, y, size:small, font });
-      page.drawText(String(r.menge||''), { x:left+170, y, size:small, font });
-      const bez = String(r.bez||'');
-      const maxLen = 70;
-      const bezOut = bez.length > maxLen ? (bez.slice(0,maxLen-1) + '…') : bez;
-      page.drawText(bezOut, { x:left+220, y, size:small, font });
-      y -= rowH;
-    });
-
-    // Erklärung
-    const erklY = tableY - 320;
-    const erkl = [
-      'Erklärung: Ich darf die Pflegehilfsmittel nicht an Dritte weitergeben oder verpfänden. Die Kosten werden nur bis zur von meiner',
-      'Pflegekasse genehmigten Höhe übernommen; für zusätzliche Leistungen trage ich die Kosten selbst.'
-    ];
-    erkl.forEach((ln,i)=> page.drawText(ln, { x:left, y:erklY - i*12, size:small, font }));
-
-    // Änderungswunsch
-    const blockY = erklY - 70;
-    page.drawText('Haben Sie einen Änderungswunsch?', { x:left, y:blockY, size:13, font:fontBold });
-    page.drawText('Bitte melden Sie sich bis zum 20. des Monats auf unserer Website', { x:left, y:blockY-22, size:normal, font:fontBold });
-    page.drawText('Adresse, per E-Mail an kontakt@pb-marina.de oder telefonisch unter', { x:left, y:blockY-36, size:normal, font:fontBold });
-    page.drawText('02369/7429658.', { x:left, y:blockY-50, size:normal, font:fontBold });
-
-    // Gruß
-    page.drawText('Mit freundlichen Grüßen', { x:left, y:blockY-120, size:normal, font });
-    page.drawText('Ihr Pflegebox Marina Team', { x:left, y:blockY-190, size:normal, font });
-
-    // Footer
-    const footY = 56;
-    // Links
-    page.drawText('Pflegebox Marina', { x:left, y:footY+24, size:small, font });
-    page.drawText('Hervesterstr. 16 - 46286 Dorsten', { x:left, y:footY+12, size:small, font });
-    page.drawText('Geschäftsführung: Marina Bittner', { x:left, y:footY, size:small, font });
-
-    // Mitte
-    const midX = 260;
-    page.drawText('Tel.: 02369/7429658', { x:midX, y:footY+24, size:small, font });
-    page.drawText('Fax.: 02369/7429398', { x:midX, y:footY+12, size:small, font });
-    page.drawText('E-Mail.: kontakt@pb-marina.de', { x:midX, y:footY, size:small, font });
-    page.drawText('Shop: www.', { x:midX, y:footY-12, size:small, font });
-    page.drawText('IK: 330522443', { x:midX, y:footY-24, size:small, font });
-
-    // Rechts
-    const rX = right-190;
-    page.drawText('Bankverbindung', { x:rX, y:footY+24, size:small, font });
-    page.drawText('Sparkasse Vest Recklinghausen', { x:rX, y:footY+12, size:small, font });
-    page.drawText('IBAN: DE96 4265 0150 1001 5171 17', { x:rX, y:footY, size:small, font });
-    page.drawText('BIC: WELADED1REK', { x:rX, y:footY-12, size:small, font });
-    page.drawText('Seite: 1', { x:right-60, y:footY+24, size:small, font });
+    // Flatten (damit nichts mehr anklickbar ist)
+    try{ form.flatten(); }catch(e){}
 
     const bytes = await pdfDoc.save();
-    return new Blob([bytes], { type:'application/pdf' });
+    return new Blob([bytes], { type: 'application/pdf' });
   }
 
 
