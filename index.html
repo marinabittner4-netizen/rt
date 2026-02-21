@@ -2031,8 +2031,8 @@ try{
       if(__anlageUrl)  { try{ URL.revokeObjectURL(__anlageUrl);  }catch{} __anlageUrl  = null; }
       if(__wechselUrl) { try{ URL.revokeObjectURL(__wechselUrl); }catch{} __wechselUrl = null; }
 
-      // Wechselerklärung wenn consent2 (Bild 2 – Marina Pflegebox) aktiv ist
-      __wechselEnabled = !!payload?.insurance?.einverstaendnis?.consent2;
+      // Wechselerklärung nur wenn bezugsCheck UND consent2 beide aktiv
+      __wechselEnabled = !!(payload?.insurance?.einverstaendnis?.consent2 && payload?.insurance?.bezieht_bereits_pflegehilfsmittel);
 
       // Anlage 2 immer erzeugen
       const anlageBlob = await generateFilledPdf(payload);
@@ -2163,8 +2163,8 @@ try{
   }
 
   async function downloadWechselPdf(payload) {
-    if(!payload?.insurance?.einverstaendnis?.consent2){
-      alert('Wechselerklärung wird nur erzeugt, wenn du das Häkchen „für Marina Pflegebox (Bild 2)“ gesetzt hast.');
+    if(!(payload?.insurance?.einverstaendnis?.consent2 && payload?.insurance?.bezieht_bereits_pflegehilfsmittel)){
+      alert('Wechselerklärung wird nur erzeugt, wenn beide Häkchen gesetzt sind ("Beziehen Sie bereits..." + Marina Pflegebox).');
       return;
     }
     const btn = document.getElementById('btnWechsel');
