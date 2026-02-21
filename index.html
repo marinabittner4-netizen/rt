@@ -1211,7 +1211,7 @@
   const PG54_ROWS = [
     { key:"pads", label:"saugende Bettschutzeinlagen Einmalgebrauch", pos:"54.45.01.0001", unit:"1 Stück" },
     { key:"fingerlings", label:"Fingerlinge (Latex, unsteril; für Latexallergiker latexfrei, unsteril)", pos:"54.99.01.0001", unit:"1 Stück" },
-    { key:"gloves", label:"Einmalhandschuhe (Latex, unsteril; für Latexallergiker latexfrei, unsteril)", pos:"54.99.01.1001", unit:"1 Stück" },
+    { key:"gloves", label:"Einmalhandschuhe", pos:"54.99.01.1001", unit:"1 Stück" },
     { key:"medMasks", label:"Medizinische Gesichtsmasken", pos:"54.99.01.2001", unit:"1 Stück" },
     { key:"ffp2", label:"Partikelfiltrierende Halbmasken (FFP‑2 oder vergleichbare Masken)", pos:"54.99.01.5001", unit:"1 Stück" },
     { key:"aprons", label:"Schutzschürzen – Einmalgebrauch", pos:"54.99.01.3001", unit:"1 Stück" },
@@ -2098,17 +2098,11 @@ if(status) status.textContent = (__wechselEnabled ? 'Bestellformular eingebettet
 
   function _lieferscheinNr(payload){
     try{
-      const dt = payload?.createdAt ? new Date(payload.createdAt) : new Date();
-      const y = String(dt.getFullYear());
-      const m = String(dt.getMonth()+1).padStart(2,'0');
-      const d = String(dt.getDate()).padStart(2,'0');
-      const hh = String(dt.getHours()).padStart(2,'0');
-      const mi = String(dt.getMinutes()).padStart(2,'0');
-      const ss = String(dt.getSeconds()).padStart(2,'0');
-      const r = String(Math.floor(Math.random()*90)+10);
-      return `PB-${y}${m}${d}-${hh}${mi}${ss}-${r}`;
+      const part1 = String(Math.floor(Math.random()*900000)+100000);
+      const part2 = String(Math.floor(Math.random()*9000)+1000);
+      return `PB-${part1}-${part2}`;
     }catch(e){
-      return `PB-${Date.now()}`;
+      return `PB-${Math.floor(Math.random()*9000000)+1000000}`;
     }
   }
 
@@ -2125,7 +2119,8 @@ if(status) status.textContent = (__wechselEnabled ? 'Bestellformular eingebettet
     (PG54_ROWS||[]).forEach((r) => {
       const q = Number(qtyMap[r.key]||0);
       if(q > 0){
-        rows.push({ pflegepos: r.pos, menge: q, bez: r.label });
+        const bez = (r.key === "gloves" && payload?.gloves?.size) ? `${r.label} Gr. ${payload.gloves.size}` : r.label;
+        rows.push({ pflegepos: r.pos, menge: q, bez });
       }
     });
     const extra = Number(payload?.extras?.washable_bettschutzeinlagen||0);
