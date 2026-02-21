@@ -617,9 +617,9 @@
 
 
         <div class="step" id="step4" style="display:none;">
-          <h2>Schritt 4: Formular (automatisch ausgefüllt)</h2>
+          <h2>Schritt 4: Bestellformular (fest eingebettet)</h2>
           <p style="margin:0 0 10px; color:#475467; font-size:13px; line-height:1.5;">
-            Unten siehst du das ausgefüllte Original‑Formular (Anlage 2). Du kannst es direkt als PDF speichern.
+            Unten ist das <b>Bestellformular/Lieferschein</b> eingebettet. Die anderen PDFs (Anlage&nbsp;2 und ggf. Wechselerklärung) sind <b>nur als Download</b> verfügbar.
           </p>
 
           <div class="nav" style="margin-top:0;">
@@ -635,20 +635,15 @@
           <!-- PDF PREVIEW AREA -->
           <div id="printArea" style="margin-top:12px;">
             <div id="pdfStatus" class="muted" style="margin:0 0 8px;"></div>
-            <a id="pdfOpenLink" href="./richtige-pdf.pdf#page=1" target="_blank" rel="noopener" style="font-size:14px; margin:0 0 10px; display:inline-block;">PDF in neuem Tab öffnen</a>
+            <a id="pdfOpenLink" href="#" target="_blank" rel="noopener" style="font-size:14px; margin:0 0 10px; display:inline-block;">Bestellformular in neuem Tab öffnen</a>
 
             <div id="pdfA4Wrap" class="pdfA4Wrap">
-              <iframe id="pdfPreview" title="PDF Vorschau" src="./richtige-pdf.pdf#page=1" loading="lazy"></iframe>
-            </div>
-
-            <div class="pdfNav">
-              <button class="secondary" id="pdfPrev" type="button">← Anlage 2</button>
-              <div class="pdfPageLabel" id="pdfPageLabel">Dokument 1 / 2</div>
-              <button class="secondary" id="pdfNext" type="button">Weiter → Wechselerklärung</button>
+              <iframe id="pdfPreview" title="PDF Vorschau" src="about:blank" loading="lazy"></iframe>
             </div>
           </div>
 
-          <details style="margin-top:12px;">
+          <div class="muted" style="margin-top:8px;">Hinweis: Anlage 2 und (optional) Wechselerklärung werden nicht angezeigt, sondern nur beim Download erzeugt.</div>
+<details style="margin-top:12px;">
             <summary style="cursor:pointer; font-weight:800;">Technische Daten (JSON)</summary>
             <div class="summary" style="margin-top:10px;">
               <pre id="output">{}</pre>
@@ -1594,88 +1589,36 @@
     return payload;
   }
 
-  // ========= PDF Navigation – 2 separate Dokumente =========
-  // Dok 1: richtige-pdf.pdf (Anlage 2), Dok 2: wechsel.pdf (Wechselerklärung)
+  // ========= PDF Vorschau =========
+  // In Schritt 4 wird NUR das Bestellformular (Lieferschein) fest eingebettet angezeigt.
+  // Anlage 2 und (optional) Wechselerklärung werden zwar erzeugt, aber NICHT in der Vorschau angezeigt
+  // (nur beim Download verfügbar).
   const STATIC_PDF_URL = './richtige-pdf.pdf';
   const STATIC_WECHSEL_URL = './wechsel.pdf';
 
-  // Aktuell angezeigtes Dokument: 1 = Anlage 2, 2 = Wechselerklärung
-  let __pdfDoc = 1;
-  // Blob-URLs der erzeugten PDFs (null = noch nicht erzeugt)
-  let __anlageUrl = null;   // Blob für richtige-pdf ausgefüllt
-  let __wechselUrl = null;  // Blob für wechsel.pdf ausgefüllt
-  let __wechselEnabled = false; // Wechselerklärung wenn consent2 (Bild 2) aktiv
+  let __bestellUrl = null;  // Blob-URL (Bestellformular)
+  let __anlageUrl  = null;  // Blob-URL (Anlage 2 ausgefüllt) – nur Download
+  let __wechselUrl = null;  // Blob-URL (Wechselerklärung ausgefüllt) – nur Download
+  let __wechselEnabled = false;
 
-  // Hilfsfunktion: Fragment #page=1 anhängen (für Browser-PDF-Viewer)
   function withPage(url){
     const base = String(url || '').split('#')[0];
     return base + '#page=1';
   }
 
-  function currentDocUrl(){
-    if(__pdfDoc === 1) return __anlageUrl  || STATIC_PDF_URL;
-    // Wechselerklärung nur anzeigen, wenn aktiviert
-    if(!__wechselEnabled) return __anlageUrl || STATIC_PDF_URL;
-    return __wechselUrl || STATIC_WECHSEL_URL;
+  function currentPreviewUrl(){
+    return __bestellUrl || 'about:blank';
   }
 
-  function setPdfUi(){
-    const lbl  = document.getElementById('pdfPageLabel');
-    const prev = document.getElementById('pdfPrev');
-    const next = document.getElementById('pdfNext');
-
-    const labels = ['Anlage 2 (Formular)', 'Wechselerklärung'];
-
-    // Wenn Wechselerklärung nicht aktiv ist, immer Dok 1 erzwingen
-    if(!__wechselEnabled && __pdfDoc === 2) __pdfDoc = 1;
-
-    if(lbl){
-      if(__wechselEnabled){
-        lbl.textContent = `${labels[__pdfDoc-1]} (${__pdfDoc} / 2)`;
-      }else{
-        lbl.textContent = `${labels[0]} (1 / 1)`;
-      }
-    }
-
-    if(prev){
-      prev.disabled = (__pdfDoc <= 1) || (!__wechselEnabled);
-      prev.textContent = '← Anlage 2';
-    }
-
-    if(next){
-      next.disabled = (!__wechselEnabled) || (__pdfDoc >= 2);
-      next.textContent = __wechselEnabled ? 'Weiter → Wechselerklärung' : 'Wechselerklärung (nicht gewählt)';
-    }
-
-  }
-
-  function showCurrentDoc(){
+  function showPreview(){
     const iframe = document.getElementById('pdfPreview');
     const openLink = document.getElementById('pdfOpenLink');
-    const url = currentDocUrl();
-    if(iframe)    iframe.src   = withPage(url);
-    if(openLink)  openLink.href = withPage(url);
-    setPdfUi();
-  }
-
-  function goToPdfPage(doc){
-    const target = Math.min(2, Math.max(1, Number(doc || 1)));
-    if(target === 2 && !__wechselEnabled){
-      // Wechselerklärung nicht aktiv → nicht wechseln
-      __pdfDoc = 1;
-      showCurrentDoc();
-      return;
+    const url = currentPreviewUrl();
+    if(iframe)   iframe.src = withPage(url);
+    if(openLink){
+      openLink.href = withPage(url);
+      openLink.style.display = (__bestellUrl ? 'inline-block' : 'none');
     }
-    __pdfDoc = target;
-    showCurrentDoc();
-  }
-
-  function bindPdfNav(){
-    const prev = document.getElementById('pdfPrev');
-    const next = document.getElementById('pdfNext');
-    if(prev) prev.addEventListener('click', () => goToPdfPage(1));
-    if(next) next.addEventListener('click', () => goToPdfPage(2));
-    setPdfUi();
   }
 
   let __pdfPreviewUrl = null; // legacy compat
@@ -1686,12 +1629,11 @@
     const status = document.getElementById('pdfStatus');
     const openLink = document.getElementById('pdfOpenLink');
 
-    // Zeige aktuelles Dokument (statisch als Fallback)
-    if(iframe) iframe.src = withPage(currentDocUrl());
-
+    if(status) status.textContent = '';
+    if(iframe) iframe.src = currentPreviewUrl();
     if(openLink){
-      openLink.style.display = 'inline-block';
-      openLink.href = withPage(currentDocUrl());
+      openLink.style.display = (__bestellUrl ? 'inline-block' : 'none');
+      openLink.href = withPage(currentPreviewUrl());
     }
   }
 
@@ -2007,11 +1949,16 @@ try{
       if(status) status.textContent = 'Formulare werden erzeugt …';
 
       // Alte Blob-URLs freigeben
+      if(__bestellUrl){ try{ URL.revokeObjectURL(__bestellUrl); }catch{} __bestellUrl = null; }
       if(__anlageUrl)  { try{ URL.revokeObjectURL(__anlageUrl);  }catch{} __anlageUrl  = null; }
       if(__wechselUrl) { try{ URL.revokeObjectURL(__wechselUrl); }catch{} __wechselUrl = null; }
 
       // Wechselerklärung nur wenn bezugsCheck UND consent2 beide aktiv
       __wechselEnabled = !!(payload?.insurance?.einverstaendnis?.consent2 && payload?.insurance?.bezieht_bereits_pflegehilfsmittel);
+
+      // Bestellformular immer erzeugen (Vorschau)
+      const bestellBlob = await generateBestellformularPdf(payload);
+      __bestellUrl = URL.createObjectURL(bestellBlob);
 
       // Anlage 2 immer erzeugen
       const anlageBlob = await generateFilledPdf(payload);
@@ -2024,17 +1971,13 @@ try{
       }else{
         __wechselUrl = null;
       }
-
-      // Immer mit Anlage 2 (Dok 1) starten
-      __pdfDoc = 1;
-      showCurrentDoc();
-
-      if(status) status.textContent = (__wechselEnabled ? 'Formulare bereit – nutze „Weiter → Wechselerklärung" zum Umschalten.' : 'Anlage 2 bereit – Wechselerklärung wurde nicht gewählt.');
+      // Vorschau: immer Bestellformular
+      showPreview();
+if(status) status.textContent = (__wechselEnabled ? 'Bestellformular eingebettet – Download enthält zusätzlich Anlage 2 + Wechselerklärung.' : 'Bestellformular eingebettet – Download enthält Anlage 2.');
     }catch(err){
       console.error(err);
       if(status) status.textContent = 'Fehler beim Erstellen der PDFs. Vorschau zeigt Vorlage.';
-      __pdfDoc = 1;
-      showCurrentDoc();
+      showPreview();
     }finally{
       __pdfBusy = false;
     }
@@ -2817,7 +2760,7 @@ const vaEl = document.getElementById('versicherungsart');
   renderProducts();
   bindExtraWashableUI();
   renderBar();
-  bindPdfNav();
+  // PDF-Navigation entfernt (nur Bestellformular-Vorschau)
   setStep(0);
 </script>
 
