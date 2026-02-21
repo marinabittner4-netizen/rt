@@ -1633,6 +1633,7 @@
   // Blob-URLs der erzeugten PDFs (null = noch nicht erzeugt)
   let __anlageUrl = null;   // Blob für richtige-pdf ausgefüllt
   let __wechselUrl = null;  // Blob für wechsel.pdf ausgefüllt
+  let __wechselEnabled = false; // Wechselerklärung nur wenn consent3 aktiv
 
   // Hilfsfunktion: Fragment #page=1 anhängen (für Browser-PDF-Viewer)
   function withPage(url){
@@ -1642,6 +1643,8 @@
 
   function currentDocUrl(){
     if(__pdfDoc === 1) return __anlageUrl  || STATIC_PDF_URL;
+    // Wechselerklärung nur anzeigen, wenn aktiviert
+    if(!__wechselEnabled) return __anlageUrl || STATIC_PDF_URL;
     return __wechselUrl || STATIC_WECHSEL_URL;
   }
 
@@ -1649,15 +1652,34 @@
     const lbl  = document.getElementById('pdfPageLabel');
     const prev = document.getElementById('pdfPrev');
     const next = document.getElementById('pdfNext');
+
     const labels = ['Anlage 2 (Formular)', 'Wechselerklärung'];
-    if(lbl)  lbl.textContent = `${labels[__pdfDoc-1]} (${__pdfDoc} / 2)`;
+
+    // Wenn Wechselerklärung nicht aktiv ist, immer Dok 1 erzwingen
+    if(!__wechselEnabled && __pdfDoc === 2) __pdfDoc = 1;
+
+    if(lbl){
+      if(__wechselEnabled){
+        lbl.textContent = `${labels[__pdfDoc-1]} (${__pdfDoc} / 2)`;
+      }else{
+        lbl.textContent = `${labels[0]} (1 / 1)`;
+      }
+    }
+
     if(prev){
-      prev.disabled = (__pdfDoc <= 1);
+      prev.disabled = (__pdfDoc <= 1) || (!__wechselEnabled);
       prev.textContent = '← Anlage 2';
     }
+
     if(next){
-      next.disabled = (__pdfDoc >= 2);
-      next.textContent = 'Weiter → Wechselerklärung';
+      next.disabled = (!__wechselEnabled) || (__pdfDoc >= 2);
+      next.textContent = __wechselEnabled ? 'Weiter → Wechselerklärung' : 'Wechselerklärung (nicht gewählt)';
+    }
+
+    // Download-Button für Wechselerklärung passend ein/ausblenden
+    const btnWechsel = document.getElementById('btnWechsel');
+    if(btnWechsel){
+      btnWechsel.style.display = __wechselEnabled ? '' : 'none';
     }
   }
 
@@ -1676,7 +1698,14 @@
   }
 
   function goToPdfPage(doc){
-    __pdfDoc = Math.min(2, Math.max(1, Number(doc || 1)));
+    const target = Math.min(2, Math.max(1, Number(doc || 1)));
+    if(target === 2 && !__wechselEnabled){
+      // Wechselerklärung nicht aktiv → nicht wechseln
+      __pdfDoc = 1;
+      showCurrentDoc();
+      return;
+    }
+    __pdfDoc = target;
     showCurrentDoc();
   }
 
@@ -2025,20 +2054,26 @@ try{
       if(__anlageUrl)  { try{ URL.revokeObjectURL(__anlageUrl);  }catch{} __anlageUrl  = null; }
       if(__wechselUrl) { try{ URL.revokeObjectURL(__wechselUrl); }catch{} __wechselUrl = null; }
 
-      // Beide PDFs parallel erzeugen
-      const [anlageBlob, wechselBlob] = await Promise.all([
-        generateFilledPdf(payload),
-        generateWechselPdf(payload)
-      ]);
+      // Wechselerklärung nur wenn consent3 aktiv ist
+      __wechselEnabled = !!payload?.insurance?.einverstaendnis?.consent3;
 
-      __anlageUrl  = URL.createObjectURL(anlageBlob);
-      __wechselUrl = URL.createObjectURL(wechselBlob);
+      // Anlage 2 immer erzeugen
+      const anlageBlob = await generateFilledPdf(payload);
+      __anlageUrl = URL.createObjectURL(anlageBlob);
+
+      // Wechselerklärung NUR erzeugen, wenn gewählt
+      if(__wechselEnabled){
+        const wechselBlob = await generateWechselPdf(payload);
+        __wechselUrl = URL.createObjectURL(wechselBlob);
+      }else{
+        __wechselUrl = null;
+      }
 
       // Immer mit Anlage 2 (Dok 1) starten
       __pdfDoc = 1;
       showCurrentDoc();
 
-      if(status) status.textContent = 'Beide Formulare bereit – nutze „Weiter → Wechselerklärung" zum Umschalten.';
+      if(status) status.textContent = (__wechselEnabled ? 'Formulare bereit – nutze „Weiter → Wechselerklärung" zum Umschalten.' : 'Anlage 2 bereit – Wechselerklärung wurde nicht gewählt.');
     }catch(err){
       console.error(err);
       if(status) status.textContent = 'Fehler beim Erstellen der PDFs. Vorschau zeigt Vorlage.';
@@ -2151,6 +2186,10 @@ try{
   }
 
   async function downloadWechselPdf(payload) {
+    if(!payload?.insurance?.einverstaendnis?.consent3){
+      alert('Wechselerklärung wird nur erzeugt, wenn du das Häkchen „umfassend beraten / keine Beratung“ gesetzt hast.');
+      return;
+    }
     const btn = document.getElementById('btnWechsel');
     const origText = btn ? btn.textContent : '';
     if (btn) { btn.disabled = true; btn.textContent = 'Wird erstellt …'; }
