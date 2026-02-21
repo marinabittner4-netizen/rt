@@ -1610,7 +1610,7 @@
   // Blob-URLs der erzeugten PDFs (null = noch nicht erzeugt)
   let __anlageUrl = null;   // Blob für richtige-pdf ausgefüllt
   let __wechselUrl = null;  // Blob für wechsel.pdf ausgefüllt
-  let __wechselEnabled = false; // Wechselerklärung nur wenn consent3 aktiv
+  let __wechselEnabled = false; // Wechselerklärung wenn consent2 (Bild 2) aktiv
 
   // Hilfsfunktion: Fragment #page=1 anhängen (für Browser-PDF-Viewer)
   function withPage(url){
@@ -2031,8 +2031,8 @@ try{
       if(__anlageUrl)  { try{ URL.revokeObjectURL(__anlageUrl);  }catch{} __anlageUrl  = null; }
       if(__wechselUrl) { try{ URL.revokeObjectURL(__wechselUrl); }catch{} __wechselUrl = null; }
 
-      // Wechselerklärung nur wenn consent3 aktiv ist
-      __wechselEnabled = !!payload?.insurance?.einverstaendnis?.consent3;
+      // Wechselerklärung wenn consent2 (Bild 2 – Marina Pflegebox) aktiv ist
+      __wechselEnabled = !!payload?.insurance?.einverstaendnis?.consent2;
 
       // Anlage 2 immer erzeugen
       const anlageBlob = await generateFilledPdf(payload);
@@ -2163,8 +2163,8 @@ try{
   }
 
   async function downloadWechselPdf(payload) {
-    if(!payload?.insurance?.einverstaendnis?.consent3){
-      alert('Wechselerklärung wird nur erzeugt, wenn du das Häkchen „umfassend beraten / keine Beratung“ gesetzt hast.');
+    if(!payload?.insurance?.einverstaendnis?.consent2){
+      alert('Wechselerklärung wird nur erzeugt, wenn du das Häkchen „für Marina Pflegebox (Bild 2)“ gesetzt hast.');
       return;
     }
     const btn = document.getElementById('btnWechsel');
