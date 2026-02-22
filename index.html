@@ -191,7 +191,7 @@
       background:#fff;
       white-space:nowrap;
     }
-    @media (max-width: 860px){
+     (max-width: 860px){
       .pdfA4Wrap{ width:100%; height: calc(100vh - 260px); border-radius:12px; }
       .pdfNav{ width:100%; }
     }
@@ -266,105 +266,7 @@
       .extraImg{ width:70px; height:60px; }
     }
 
-  
-    /* ===== Screenshot-Layout (Warenkorb rechts) ===== */
-    .grid{ grid-template-columns: 1fr 1fr; } /* links Produkte, rechts Warenkorb */
-    @media (max-width: 980px){ .grid{ grid-template-columns: 1fr; } }
-
-    .card{ border-radius: 4px; box-shadow:none; }
-    .card h2{ font-size:28px; font-weight:500; font-family: Georgia, "Times New Roman", serif; }
-
-    /* Produkte links wie Liste */
-    #productList .row{
-      background:#f0f0f0;
-      border:1px solid #ddd;
-      border-radius:2px;
-      padding:14px 12px;
-      margin-bottom:12px;
-      grid-template-columns: 72px 1fr auto;
-    }
-    #productList .row .pimg{ background:#fff; border:0; }
-    #productList .row .meta{ display:none; }
-
-    .qtyBox{
-      display:inline-flex; align-items:center; gap:8px;
-      font-variant-numeric: tabular-nums;
-    }
-    .qtyBadge{
-      display:inline-flex; align-items:center; justify-content:center;
-      min-width:64px;
-      padding:6px 10px;
-      border:1px solid var(--brand);
-      color:var(--brand);
-      background:#fff;
-      border-radius:2px;
-      font-size:12px;
-      font-weight:800;
-      white-space:nowrap;
-    }
-    .qtyBtn{
-      width:28px; height:28px; border-radius:2px; padding:0;
-      border:1px solid var(--brand);
-      color:var(--brand);
-      background:#fff;
-      font-size:18px; line-height:1;
-      display:inline-flex; align-items:center; justify-content:center;
-    }
-    .qtyBtn.ghost{
-      border-color:#cbd5e1; color:#94a3b8;
-    }
-
-    /* Warenkorb rechts */
-    .cart{ display:flex; flex-direction:column; gap:12px; }
-    .cartHead{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-    .cartTitle{ font-weight:700; color:#475467; }
-    .cartBarRow{ display:flex; align-items:center; gap:10px; }
-    .cartPct{
-      font-size:12px; font-weight:900; color:#027a48;
-      border:1px solid #a7f3d0; background:#ecfdf3;
-      padding:2px 6px; border-radius:2px;
-      min-width:44px; text-align:center;
-    }
-    .cartList{ display:grid; gap:14px; }
-    .cartItem{
-      border-top:1px dashed rgba(229,57,53,.25);
-      padding-top:14px;
-      position:relative;
-    }
-    .cartItem:first-child{ border-top:0; padding-top:0; }
-    .cartRow{
-      display:grid;
-      grid-template-columns: 44px 1fr auto;
-      gap:12px;
-      align-items:center;
-    }
-    .cartName{ color:var(--brand); font-weight:900; }
-    .cartMeta{ color:var(--brand); font-weight:900; font-size:12px; text-align:right; }
-    .cartRemove{
-      position:absolute; right:0; top:0;
-      width:26px; height:26px;
-      border:1px solid var(--brand);
-      background:#fff;
-      color:var(--brand);
-      border-radius:2px;
-      padding:0;
-      font-size:16px;
-      line-height:1;
-    }
-    .cartOpts{ margin-top:10px; padding-left:56px; display:grid; gap:8px; }
-    .optRow{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
-    .optLabel{ width:70px; color:#111; font-size:12px; }
-    .optBtn{
-      padding:6px 10px; border-radius:2px; font-size:12px;
-      border:1px solid #ddd; background:#f3f4f6; color:#111;
-    }
-    .optBtn.active{ border-color:var(--brand); color:var(--brand); background:#fff; }
-    .cartFooter{ margin-top:auto; padding-top:8px; }
-
-    /* Button wie Screenshot */
-    .primary{ border-radius:2px; }
-
-\1
+  </style>
 </head>
 <body>
 
@@ -405,10 +307,10 @@
       </div>
 
     <div class="stepper" aria-label="Schritte">
-      <div class="stepDot active" id="dot1"><b>1</b><span>Box wählen</span></div>
-      <div class="stepDot" id="dot2"><b>2</b><span>Dateineingabe</span></div>
-      <div class="stepDot" id="dot3"><b>3</b><span>Unterschrift</span></div>
-      <div class="stepDot" id="dot4"><b>4</b><span>Fertig</span></div>
+      <div class="stepDot active" id="dot1"><b>1</b><span>Produkte</span></div>
+      <div class="stepDot" id="dot2"><b>2</b><span>Lieferinfo</span></div>
+      <div class="stepDot" id="dot3"><b>3</b><span>Versicherung</span></div>
+      <div class="stepDot" id="dot4"><b>4</b><span>Übersicht</span></div>
     </div>
 
     <div style="margin-top:12px;">
@@ -430,8 +332,7 @@
 
         <!-- Step 1 -->
         <div class="step" id="step1">
-          <h2>Pflegebox bestellen</h2>
-          <div style="display:flex; justify-content:flex-end; margin-top:-40px;"><button type="button" class="primary" id="tourStart" style="padding:8px 12px; border-radius:4px; font-weight:800;">Tour starten</button></div>
+          <h2>Schritt 1: Produkte auswählen</h2>
           <p style="margin:0 0 10px; color:#475467; font-size:13px; line-height:1.5;">
             Wähle deine Produkte aus. Das Budget wird live geprüft.
           </p>
@@ -762,31 +663,16 @@
       </section>
 
       <!-- SIDE (right) -->
-      <aside class="card cart" aria-label="Warenkorb">
-        <div class="cartHead">
-          <div>
-            <div class="cartTitle">Ihr Warenkorb</div>
+      <aside class="card" aria-label="Status">
+        <h2>Status</h2>
+        <div style="display:grid; gap:10px;">
+          <div class="pill" style="border-radius:12px;">Schritt: <strong id="stepShow">1/4</strong></div>
+          <div class="pill" style="border-radius:12px;">Summe aktuell: <strong id="sumShow2">0,00 €</strong></div>
+          <div class="pill" style="border-radius:12px;">Budget: <strong id="budgetShow2">42,00 €</strong></div>
+          <div style="color:#475467; font-size:13px; line-height:1.5;">
+            <b>Hinweis:</b> Die Produktpreise sind Beispielwerte und können von Lieferantenpreisen abweichen.
+            Du kannst die Produkte/Preise direkt in der <code>products</code>-Liste im Code ändern.
           </div>
-          <button type="button" class="secondary" id="clearCart" title="Box leeren">
-            <span style="display:inline-flex; align-items:center; gap:8px;">
-              <span style="font-size:14px;">🧺</span>
-              Box leeren
-            </span>
-          </button>
-        </div>
-
-        <div class="cartBarRow">
-          <div class="barWrap" style="flex:1; height:8px;"><div class="bar" id="bar2"></div></div>
-          <div class="cartPct" id="cartPct">0%</div>
-        </div>
-
-        <div id="cartList" class="cartList" aria-live="polite"></div>
-
-        <div class="cartFooter">
-          <button class="primary" id="next1_right" type="button" disabled style="width:100%; border-radius:4px; padding:14px 14px; font-weight:900;">
-            Weiter zur Dateneingabe
-          </button>
-          <div class="muted" style="margin-top:8px; text-align:center;">Budget: <b id="budgetShow2">42,00 €</b> • Summe: <b id="sumShow2">0,00 €</b><span id="stepShow" style="display:none"></span></div>
         </div>
       </aside>
 
@@ -853,7 +739,7 @@
   let extraWashableCount = 0;
 
   // ✅ Handschuh-Optionen (Größe) – wird im Schritt 2 abgefragt
-  const options = { gloves: { size: "", material: "Vinyl" } }; // Größe S|M|L|XL, Material Vinyl|Nitril|Latex
+  const options = { gloves: { size: "" } }; // S | M | L | XL
 
   // ✅ Leistungserbringer (vorausgefüllt)
   const PROVIDER = {
@@ -945,10 +831,6 @@
     const b = budget();
     const pct = b > 0 ? Math.min(100, (sum / b) * 100) : 0;
     bar.style.width = `${pct}%`;
-    const bar2 = document.getElementById("bar2");
-    if(bar2) bar2.style.width = `${pct}%`;
-    const cartPct = document.getElementById("cartPct");
-    if(cartPct) cartPct.textContent = `${Math.round(pct)}%`;
     sumShow.textContent = eur(sum);
     sumShow2.textContent = eur(sum);
     budgetShow.textContent = eur(b);
@@ -1014,14 +896,7 @@
       if(i < currentStep) d.classList.add("done");
       if(i === currentStep) d.classList.add("active");
     });
-    if(stepShow) stepShow.textContent = `${currentStep+1}/4`;
-
-    // Warenkorb rechts nur in Schritt 1 anzeigen (wie Screenshot)
-    const cartAside = document.querySelector('aside.cart');
-    const gridEl = document.querySelector('.grid');
-    if(cartAside) cartAside.style.display = (currentStep === 0 ? "flex" : "none");
-    if(gridEl) gridEl.style.gridTemplateColumns = (currentStep === 0 ? "1fr 1fr" : "1fr");
-
+    stepShow.textContent = `${currentStep+1}/4`;
     // Im letzten Schritt immer eine aktuelle Übersicht anzeigen
     if(currentStep === 3) buildOutput(false);
   }
@@ -1179,12 +1054,12 @@
     el.classList.toggle("open");
   }
 
-  
   function renderProducts(){
     productList.innerHTML = "";
     products.forEach((p) => {
       const row = document.createElement("div");
       row.className = "row";
+      // ✅ Für Budget-Lock: Produkt-ID am Row speichern
       row.setAttribute('data-pid', p.id);
 
       const img = document.createElement("img");
@@ -1196,196 +1071,135 @@
       const info = document.createElement("div");
       info.innerHTML = `
         <div class="name">${p.name}</div>
+        <div class="meta">${p.meta}</div>
       `;
 
       const controls = document.createElement("div");
-      controls.className = "qtyBox";
+      controls.className = "controls";
 
-      const badge = document.createElement("div");
-      badge.className = "qtyBadge";
-      badge.textContent = p.meta || "";
+      const qtyWrap = document.createElement("div");
+      qtyWrap.className = "qty";
 
       const minus = document.createElement("button");
       minus.type = "button";
-      minus.className = "qtyBtn";
       minus.textContent = "−";
+      minus.classList.add('btnMinus');
+      minus.addEventListener("click", () => {
+        state[p.id] = Math.max(0, (state[p.id] || 0) - 1);
+        input.value = state[p.id];
+        if(p.id === "gloves" && state[p.id] === 0) options.gloves.size = "";
+        renderBar();
 
-      const count = document.createElement("div");
-      count.style.minWidth = "18px";
-      count.style.textAlign = "center";
-      count.style.fontWeight = "900";
+      });
+
+      const input = document.createElement("input");
+      input.type = "number";
+      input.min = "0";
+      input.step = "1";
+      input.classList.add('qtyInput');
+      input.value = state[p.id];
+      input.addEventListener("input", () => {
+        let v = Math.max(0, Math.floor(Number(input.value || 0)));
+        // ✅ Budget-Hard-Limit auch bei manueller Eingabe
+        const b = budget();
+        const currentSum = calcSum();
+        const currentQty = Number(state[p.id] || 0);
+        const sumExcl = currentSum - (currentQty * p.price);
+        const remaining = Math.max(0, b - sumExcl);
+        const maxQty = (p.price > 0) ? Math.floor((remaining + 1e-9) / p.price) : v;
+        if(Number.isFinite(maxQty)) v = Math.min(v, Math.max(0, maxQty));
+
+        state[p.id] = v;
+        input.value = String(v);
+        if(p.id === "gloves" && v === 0) options.gloves.size = "";
+        renderBar();
+
+      });
 
       const plus = document.createElement("button");
       plus.type = "button";
-      plus.className = "qtyBtn";
       plus.textContent = "+";
-
-      const update = () => {
-        const q = Number(state[p.id] || 0);
-        count.textContent = String(q);
-        minus.disabled = q <= 0;
-        if(q <= 0) minus.classList.add('ghost'); else minus.classList.remove('ghost');
-      };
-
-      minus.addEventListener("click", () => {
-        state[p.id] = Math.max(0, (state[p.id] || 0) - 1);
-        if(p.id === "gloves" && state[p.id] === 0){
-          options.gloves.size = "";
-          options.gloves.material = options.gloves.material || "Vinyl";
-        }
-        update();
-        renderBar();
-        renderCart();
-      });
-
+      plus.classList.add('btnPlus');
       plus.addEventListener("click", () => {
-        // Budget-Hard-Limit: Erhöhung nur, wenn es noch ins Budget passt
+        // ✅ Budget-Hard-Limit: Erhöhung nur, wenn es noch ins Budget passt
         const b = budget();
-        const currentSum = calcSum();
-        const sumAfter = currentSum + p.price;
-        if(sumAfter <= b + 1e-9){
-          state[p.id] = (state[p.id] || 0) + 1;
-          if(p.id === "gloves"){
-            options.gloves.material = options.gloves.material || "Vinyl";
-          }
-          update();
+        const sum = calcSum();
+        if(p.price > 0 && (sum + p.price > b + 1e-9)){
           renderBar();
-          renderCart();
+          return;
         }
+        state[p.id] = (state[p.id] || 0) + 1;
+        input.value = state[p.id];
+        renderBar();
+
       });
 
-      controls.appendChild(badge);
-      controls.appendChild(minus);
-      controls.appendChild(count);
-      controls.appendChild(plus);
+      qtyWrap.appendChild(minus);
+      qtyWrap.appendChild(input);
+      qtyWrap.appendChild(plus);
+
+      // Für Handschuhe: Positionen tauschen (Größe links, Menge rechts)
+      // Für alle anderen Produkte: Menge normal anzeigen
+
+      // ✅ Handschuhgrößen-Buttons & Mengen-Buttons
+      let syncGlovesUI = () => {};
+      if(p.id === "gloves"){
+        const sizesWrap = document.createElement("div");
+        sizesWrap.className = "sizes";
+        const sizes = ["S","M","L","XL"];
+        const btns = {};
+
+        sizes.forEach((s) => {
+          const b = document.createElement("button");
+          b.type = "button";
+          b.className = "sizeBtn";
+          b.textContent = s;
+          b.setAttribute('data-gloves-size', s);
+          b.addEventListener("click", () => {
+            if((state.gloves || 0) === 0) return;
+            options.gloves.size = s;
+            renderBar();
+          });
+          btns[s] = b;
+          sizesWrap.appendChild(b);
+        });
+
+        syncGlovesUI = () => {
+          const disabled = (state.gloves || 0) === 0;
+          sizes.forEach((s) => {
+            btns[s].disabled = disabled;
+            btns[s].classList.toggle("active", !!options.gloves.size && options.gloves.size === s && !disabled);
+          });
+        };
+
+        syncGlovesUI();
+        // ✅ Plätze wirklich tauschen (wie gewünscht):
+        // Gr.-Buttons links
+        controls.appendChild(sizesWrap);
+        // Mengen-Buttons rechts
+        controls.appendChild(qtyWrap);
+
+        // In die Beschriftung „meta“ kurz die Größe spiegeln (optional)
+        // (wird nicht dauerhaft verändert, nur Anzeige)
+        // info.querySelector(".meta")?.insertAdjacentHTML("beforeend", options.gloves.size ? ` • Größe: ${options.gloves.size}` : "");
+      } else {
+        controls.appendChild(qtyWrap);
+      }
 
       row.appendChild(img);
       row.appendChild(info);
       row.appendChild(controls);
 
-      // Beschreibung (ausklappbar)
+      // Description line
       const desc = document.createElement("div");
       desc.className = "pdesc";
       desc.id = `desc-${p.id}`;
-      desc.innerHTML = `<div class="pdescInner">${p.desc || ""}</div>`;
+      desc.innerHTML = `<div class="pdescInner">${p.desc}</div>`;
 
+      row.appendChild(desc);
       productList.appendChild(row);
-      productList.appendChild(desc);
-
-      update();
     });
   }
-
-  function renderCart(){
-    const cartList = document.getElementById("cartList");
-    if(!cartList) return;
-    cartList.innerHTML = "";
-
-    const selected = products.filter(p => (state[p.id] || 0) > 0);
-
-    if(selected.length === 0){
-      cartList.innerHTML = `<div class="muted" style="text-align:center; padding:18px 10px;">Noch nichts ausgewählt.</div>`;
-      return;
-    }
-
-    selected.forEach((p) => {
-      const item = document.createElement("div");
-      item.className = "cartItem";
-
-      const remove = document.createElement("button");
-      remove.type = "button";
-      remove.className = "cartRemove";
-      remove.textContent = "×";
-      remove.title = "Entfernen";
-      remove.addEventListener("click", () => {
-        state[p.id] = 0;
-        if(p.id === "gloves"){
-          options.gloves.size = "";
-          options.gloves.material = options.gloves.material || "Vinyl";
-        }
-        renderProducts();
-        renderBar();
-        renderCart();
-      });
-
-      const row = document.createElement("div");
-      row.className = "cartRow";
-
-      const img = document.createElement("img");
-      img.src = p.img;
-      img.alt = "";
-      img.style.width = "44px";
-      img.style.height = "34px";
-      img.style.objectFit = "contain";
-      img.style.opacity = ".95";
-
-      const center = document.createElement("div");
-      center.innerHTML = `<div class="cartName">${p.name}</div>`;
-
-      const meta = document.createElement("div");
-      meta.className = "cartMeta";
-      meta.textContent = p.meta || "";
-
-      row.appendChild(img);
-      row.appendChild(center);
-      row.appendChild(meta);
-
-      item.appendChild(remove);
-      item.appendChild(row);
-
-      // Handschuhe: Material + Größe wie Screenshot
-      if(p.id === "gloves"){
-        const opts = document.createElement("div");
-        opts.className = "cartOpts";
-
-        options.gloves.material = options.gloves.material || "Vinyl";
-
-        const materials = ["Vinyl","Nitril","Latex"];
-        const matRow = document.createElement("div");
-        matRow.className = "optRow";
-        matRow.innerHTML = `<div class="optLabel">Material</div>`;
-        materials.forEach(m => {
-          const b = document.createElement("button");
-          b.type = "button";
-          b.className = "optBtn";
-          b.textContent = m;
-          b.classList.toggle("active", options.gloves.material === m);
-          b.addEventListener("click", () => {
-            options.gloves.material = m;
-            renderCart();
-            if(currentStep === 3) buildOutput(false);
-          });
-          matRow.appendChild(b);
-        });
-
-        const sizes = ["S","M","L","XL"];
-        const sizeRow = document.createElement("div");
-        sizeRow.className = "optRow";
-        sizeRow.innerHTML = `<div class="optLabel">Größe</div>`;
-        sizes.forEach(s => {
-          const b = document.createElement("button");
-          b.type = "button";
-          b.className = "optBtn";
-          b.textContent = s;
-          b.classList.toggle("active", options.gloves.size === s);
-          b.addEventListener("click", () => {
-            options.gloves.size = s;
-            renderCart();
-            renderBar();
-            if(currentStep === 3) buildOutput(false);
-          });
-          sizeRow.appendChild(b);
-        });
-
-        opts.appendChild(matRow);
-        opts.appendChild(sizeRow);
-        item.appendChild(opts);
-      }
-
-      cartList.appendChild(item);
-    });
-  }
-
 
   // (Gloves size UI inline in product row)
   function updateGlovesSizeUI(initial=false){
@@ -2619,13 +2433,11 @@ if(status) status.textContent = (__wechselEnabled ? 'Bestellformular eingebettet
   // Step 1: Ohne Pflegegrad kein Weiter
 
   const next1 = document.getElementById("next1");
-  const next1Right = document.getElementById("next1_right");
   const pgSelect = document.getElementById("pflegegrad");
   const pgHint = document.getElementById("pgHint");
   const toggleNext1 = () => {
     const ok = !!(pgSelect && String(pgSelect.value || "").trim());
     if(next1) next1.disabled = !ok;
-    if(next1Right) next1Right.disabled = !ok;
     if(pgHint) pgHint.style.display = ok ? "none" : "block";
   };
   if(pgSelect){
@@ -2670,7 +2482,6 @@ if(status) status.textContent = (__wechselEnabled ? 'Bestellformular eingebettet
   }
 
   document.getElementById("next1").addEventListener("click", tryNext);
-  document.getElementById("next1_right")?.addEventListener("click", tryNext);
   document.getElementById("next2").addEventListener("click", tryNext);
   document.getElementById("next3").addEventListener("click", tryNext);
 
@@ -2963,23 +2774,6 @@ const vaEl = document.getElementById('versicherungsart');
   renderProducts();
   bindExtraWashableUI();
   renderBar();
-  renderCart();
-
-  // Warenkorb: Box leeren
-  document.getElementById("clearCart")?.addEventListener("click", () => {
-    products.forEach(p => state[p.id] = 0);
-    options.gloves.size = "";
-    options.gloves.material = options.gloves.material || "Vinyl";
-    renderProducts();
-    renderBar();
-    renderCart();
-  });
-
-  // Tour starten (Placeholder)
-  document.getElementById("tourStart")?.addEventListener("click", () => {
-    alert("Tour kommt als nächstes 🙂");
-  });
-
   // PDF-Navigation entfernt (nur Bestellformular-Vorschau)
   setStep(0);
 </script>
