@@ -1929,6 +1929,9 @@ setTextSafe('vers_10', versValue);
   // Extra-Feld (falls vorhanden): qty_13
   setTextSafe('qty_13', extraWashableCount ? String(extraWashableCount) : '');
 
+  // ✅ PG51-Checkbox automatisch setzen, wenn Extra > 0 (UI-Box → PDF-Checkbox)
+  checkSafe('chk_pg51', Number(extraWashableCount||0) > 0);
+
   // IMPORTANT: Beratung in den Geschäftsräumen NIE setzen
   checkSafe('chk_form_2', false);
 
