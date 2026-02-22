@@ -1,28 +1,13 @@
-# Marina Pflegebox Konfigurator (mit E-Mail Versand)
+# Marina Pflegebox Konfigurator
 
-## Offline
-Du kannst den Konfigurator weiterhin **offline** mit `index.html` öffnen.
-➡️ Dann funktionieren aber **nur Downloads** – der E-Mail Versand braucht einen Server.
+**Offline nutzbar**: Einfach `index.html` im Browser öffnen.
 
-## E-Mail Versand aktivieren (empfohlen)
-Damit der Button **„Bestellung erstellen“** die ausgefüllten PDFs automatisch per E-Mail versendet, starte den Konfigurator über den mitgelieferten Node-Server:
+## Anpassen
+- Produkte/Preise: im Script-Block im Array `products`.
+- Start-Budget: im Feld `value="42"` (oder zur Laufzeit im UI ändern).
 
-1) Node.js installieren (LTS)
-2) Im Ordner (wo `server.js` liegt) öffnen:
-```bash
-npm install
-npm start
-```
-3) Browser öffnen:
-`http://localhost:3000`
+## Export
+- Klick auf **„Bestellung erstellen“** erzeugt JSON im Export-Feld.
+- **„JSON kopieren“** kopiert den Export in die Zwischenablage.
 
-### SMTP Zugangsdaten
-- Datei `.env` anlegen (Vorlage: `.env.example`)
-- SMTP Daten eintragen
-
-## Button / Empfänger anpassen
-In `index.html`:
-- `ORDER_EMAIL_TO` (Empfänger)
-- `EMAIL_API_ENDPOINT` (API Pfad)
-
-Erstellt am: 2026-02-22
+Erstellt am: 2026-02-07
