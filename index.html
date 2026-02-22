@@ -169,6 +169,9 @@
       box-shadow: 0 10px 28px rgba(0,0,0,.10);
     }
     .pdfA4Wrap iframe{ width:100%; height:100%; border:0; }
+    .pdfCanvasWrap{width:100%; height:100%;}
+    #pdfCanvas{display:block; width:100%; height:100%;}
+
     .pdfNav{
       display:flex;
       justify-content:space-between;
@@ -617,9 +620,9 @@
 
 
         <div class="step" id="step4" style="display:none;">
-          <h2>Schritt 4: Formular (automatisch ausgefüllt)</h2>
+          <h2>Schritt 4: Bestellformular (fest eingebettet)</h2>
           <p style="margin:0 0 10px; color:#475467; font-size:13px; line-height:1.5;">
-            Unten siehst du das ausgefüllte Original‑Formular (Anlage 2). Du kannst es direkt als PDF speichern.
+            Unten ist das <b>Bestellformular/Lieferschein</b> eingebettet. Die anderen PDFs (Anlage&nbsp;2 und ggf. Wechselerklärung) sind <b>nur als Download</b> verfügbar.
           </p>
 
           <div class="nav" style="margin-top:0;">
@@ -628,38 +631,27 @@
               <button class="danger" id="btnReset" type="button">Zurücksetzen</button>
             </div>
             <div class="right">
-              <button class="secondary" id="btnCopy" type="button">JSON kopieren</button>
-              <button class="secondary" id="btnPrint" type="button">Als PDF speichern / Drucken</button>
-              <button class="secondary" id="btnOpenPdf" type="button">PDF öffnen</button>
-              <button class="secondary" id="btnWechsel" type="button">📄 Wechselerklärung herunterladen</button>
-              <button class="primary" id="btnCreate" type="button">Bestellung erstellen</button>
-              <button class="primary" id="btnSendDashboard" type="button" style="background:#27ae60;border-color:#27ae60;">📤 An Dashboard senden</button>
+              <button class="primary" id="btnPdfDownload" type="button">PDF Download</button>
             </div>
           </div>
 
           <!-- PDF PREVIEW AREA -->
           <div id="printArea" style="margin-top:12px;">
             <div id="pdfStatus" class="muted" style="margin:0 0 8px;"></div>
-            <a id="pdfOpenLink" href="./richtige-pdf.pdf#page=1" target="_blank" rel="noopener" style="font-size:14px; margin:0 0 10px; display:inline-block;">PDF in neuem Tab öffnen</a>
+            <a id="pdfOpenLink" href="#" target="_blank" rel="noopener" style="font-size:14px; margin:0 0 10px; display:inline-block;">Bestellformular in neuem Tab öffnen</a>
 
             <div id="pdfA4Wrap" class="pdfA4Wrap">
-              <iframe id="pdfPreview" title="PDF Vorschau" src="./richtige-pdf.pdf#page=1" loading="lazy"></iframe>
-            </div>
+              
+              <div class="pdfCanvasWrap" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; background:#fff;">
+                <canvas id="pdfCanvas" style="width:100%; height:100%;"></canvas>
+              </div>
+              <iframe id="pdfPreview" title="PDF Vorschau (Fallback)" src="about:blank" loading="lazy" style="display:none;"></iframe>
 
-            <div class="pdfNav">
-              <button class="secondary" id="pdfPrev" type="button">← Anlage 2</button>
-              <div class="pdfPageLabel" id="pdfPageLabel">Dokument 1 / 2</div>
-              <button class="secondary" id="pdfNext" type="button">Weiter → Wechselerklärung</button>
             </div>
           </div>
 
-          <details style="margin-top:12px;">
-            <summary style="cursor:pointer; font-weight:800;">Technische Daten (JSON)</summary>
-            <div class="summary" style="margin-top:10px;">
-              <pre id="output">{}</pre>
-              <div class="muted">Tipp: Mit „JSON kopieren“ kannst du es direkt in WhatsApp/Email/Backend einfügen.</div>
-            </div>
-          </details>
+          <div class="muted" style="margin-top:8px;">Hinweis: Anlage 2 und (optional) Wechselerklärung werden nicht angezeigt, sondern nur beim Download erzeugt.</div>
+
         </div>
 
       </section>
@@ -768,7 +760,7 @@
   const out = document.getElementById("output");
   const printArea = document.getElementById("printArea");
 
-  const btnPrint = document.getElementById("btnPrint");
+  const btnDownload = document.getElementById("btnPdfDownload");
   const btnSignInsured = document.getElementById("btnSignInsured");
   const btnSignCare = document.getElementById("btnSignCare");
   const signStatusInsured = document.getElementById("signStatusInsured");
@@ -1213,7 +1205,7 @@
   const PG54_ROWS = [
     { key:"pads", label:"saugende Bettschutzeinlagen Einmalgebrauch", pos:"54.45.01.0001", unit:"1 Stück" },
     { key:"fingerlings", label:"Fingerlinge (Latex, unsteril; für Latexallergiker latexfrei, unsteril)", pos:"54.99.01.0001", unit:"1 Stück" },
-    { key:"gloves", label:"Einmalhandschuhe (Latex, unsteril; für Latexallergiker latexfrei, unsteril)", pos:"54.99.01.1001", unit:"1 Stück" },
+    { key:"gloves", label:"Einmalhandschuhe", pos:"54.99.01.1001", unit:"1 Stück" },
     { key:"medMasks", label:"Medizinische Gesichtsmasken", pos:"54.99.01.2001", unit:"1 Stück" },
     { key:"ffp2", label:"Partikelfiltrierende Halbmasken (FFP‑2 oder vergleichbare Masken)", pos:"54.99.01.5001", unit:"1 Stück" },
     { key:"aprons", label:"Schutzschürzen – Einmalgebrauch", pos:"54.99.01.3001", unit:"1 Stück" },
@@ -1593,106 +1585,52 @@
       else renderPdfLocked();
 
       // Druck/PDF & Bestellung erst erlauben, wenn das Formular erzeugt werden darf
-      const printBtn = document.getElementById('btnPrint');
-      const createBtn = document.getElementById('btnCreate');
-      if(printBtn) printBtn.disabled = !anyConsent;
-      if(createBtn) createBtn.disabled = !anyConsent;
+      const dlBtn = document.getElementById('btnPdfDownload');
+      if(dlBtn) dlBtn.disabled = !anyConsent;
     }
     return payload;
   }
 
-  // ========= PDF Navigation – 2 separate Dokumente =========
-  // Dok 1: richtige-pdf.pdf (Anlage 2), Dok 2: wechsel.pdf (Wechselerklärung)
+  // ========= PDF Vorschau =========
+  // In Schritt 4 wird NUR das Bestellformular (Lieferschein) fest eingebettet angezeigt.
+  // Anlage 2 und (optional) Wechselerklärung werden zwar erzeugt, aber NICHT in der Vorschau angezeigt
+  // (nur beim Download verfügbar).
   const STATIC_PDF_URL = './richtige-pdf.pdf';
   const STATIC_WECHSEL_URL = './wechsel.pdf';
 
-  // Aktuell angezeigtes Dokument: 1 = Anlage 2, 2 = Wechselerklärung
-  let __pdfDoc = 1;
-  // Blob-URLs der erzeugten PDFs (null = noch nicht erzeugt)
-  let __anlageUrl = null;   // Blob für richtige-pdf ausgefüllt
-  let __wechselUrl = null;  // Blob für wechsel.pdf ausgefüllt
-  let __wechselEnabled = false; // Wechselerklärung wenn consent2 (Bild 2) aktiv
+  let __bestellUrl = null;  // Blob-URL (Bestellformular)
+  let __anlageUrl  = null;  // Blob-URL (Anlage 2 ausgefüllt) – nur Download
+  let __wechselUrl = null;  // Blob-URL (Wechselerklärung ausgefüllt) – nur Download
+  let __wechselEnabled = false;
 
-  // Hilfsfunktion: Fragment #page=1 anhängen (für Browser-PDF-Viewer)
   function withPage(url){
     const base = String(url || '').split('#')[0];
     return base + '#page=1';
   }
 
-  function currentDocUrl(){
-    if(__pdfDoc === 1) return __anlageUrl  || STATIC_PDF_URL;
-    // Wechselerklärung nur anzeigen, wenn aktiviert
-    if(!__wechselEnabled) return __anlageUrl || STATIC_PDF_URL;
-    return __wechselUrl || STATIC_WECHSEL_URL;
+  function currentPreviewUrl(){
+    return __bestellUrl || 'about:blank';
   }
 
-  function setPdfUi(){
-    const lbl  = document.getElementById('pdfPageLabel');
-    const prev = document.getElementById('pdfPrev');
-    const next = document.getElementById('pdfNext');
-
-    const labels = ['Anlage 2 (Formular)', 'Wechselerklärung'];
-
-    // Wenn Wechselerklärung nicht aktiv ist, immer Dok 1 erzwingen
-    if(!__wechselEnabled && __pdfDoc === 2) __pdfDoc = 1;
-
-    if(lbl){
-      if(__wechselEnabled){
-        lbl.textContent = `${labels[__pdfDoc-1]} (${__pdfDoc} / 2)`;
-      }else{
-        lbl.textContent = `${labels[0]} (1 / 1)`;
-      }
-    }
-
-    if(prev){
-      prev.disabled = (__pdfDoc <= 1) || (!__wechselEnabled);
-      prev.textContent = '← Anlage 2';
-    }
-
-    if(next){
-      next.disabled = (!__wechselEnabled) || (__pdfDoc >= 2);
-      next.textContent = __wechselEnabled ? 'Weiter → Wechselerklärung' : 'Wechselerklärung (nicht gewählt)';
-    }
-
-    // Download-Button für Wechselerklärung passend ein/ausblenden
-    const btnWechsel = document.getElementById('btnWechsel');
-    if(btnWechsel){
-      btnWechsel.style.display = __wechselEnabled ? '' : 'none';
-    }
-  }
-
-  function showCurrentDoc(){
-    const iframe = document.getElementById('pdfPreview');
+  function showPreview(){
+    const iframe = document.getElementById('pdfPreview'); // fallback
     const openLink = document.getElementById('pdfOpenLink');
-    const btnOpen  = document.getElementById('btnOpenPdf');
-    const url = currentDocUrl();
-    if(iframe)    iframe.src   = withPage(url);
-    if(openLink)  openLink.href = withPage(url);
-    if(btnOpen){
-      btnOpen.disabled = false;
-      btnOpen.onclick = () => window.open(withPage(url), '_blank');
-    }
-    setPdfUi();
-  }
+    const url = currentPreviewUrl();
 
-  function goToPdfPage(doc){
-    const target = Math.min(2, Math.max(1, Number(doc || 1)));
-    if(target === 2 && !__wechselEnabled){
-      // Wechselerklärung nicht aktiv → nicht wechseln
-      __pdfDoc = 1;
-      showCurrentDoc();
-      return;
+    // "Open in new tab" optional: nur zeigen, wenn wirklich ein PDF existiert
+    if(openLink){
+      openLink.href = withPage(url);
+      openLink.style.display = (__bestellUrl ? 'inline-block' : 'none');
     }
-    __pdfDoc = target;
-    showCurrentDoc();
-  }
 
-  function bindPdfNav(){
-    const prev = document.getElementById('pdfPrev');
-    const next = document.getElementById('pdfNext');
-    if(prev) prev.addEventListener('click', () => goToPdfPage(1));
-    if(next) next.addEventListener('click', () => goToPdfPage(2));
-    setPdfUi();
+    // Hauptweg: fest eingebettet ohne Toolbar (Canvas-Render via pdf.js)
+    renderBestellCanvas(url).catch((err)=>{
+      console.warn('Canvas-Preview fehlgeschlagen, nutze Fallback iFrame:', err);
+      if(iframe){
+        iframe.style.display = 'block';
+        iframe.src = withPage(url);
+      }
+    });
   }
 
   let __pdfPreviewUrl = null; // legacy compat
@@ -1701,19 +1639,13 @@
   function clearPdfPreview(){
     const iframe = document.getElementById('pdfPreview');
     const status = document.getElementById('pdfStatus');
-    const btnOpen = document.getElementById('btnOpenPdf');
     const openLink = document.getElementById('pdfOpenLink');
 
-    // Zeige aktuelles Dokument (statisch als Fallback)
-    if(iframe) iframe.src = withPage(currentDocUrl());
-
-    if(btnOpen){
-      btnOpen.disabled = false;
-      btnOpen.onclick = () => window.open(withPage(currentDocUrl()), '_blank');
-    }
+    if(status) status.textContent = '';
+    if(iframe) iframe.src = currentPreviewUrl();
     if(openLink){
-      openLink.style.display = 'inline-block';
-      openLink.href = withPage(currentDocUrl());
+      openLink.style.display = (__bestellUrl ? 'inline-block' : 'none');
+      openLink.href = withPage(currentPreviewUrl());
     }
   }
 
@@ -1724,7 +1656,78 @@
     if(status) status.textContent = 'Aktiviere bitte das blaue Einverständnis-Häkchen, damit das Formular als PDF erzeugt werden darf.';
   }
 
-  async function fetchArrayBuffer(url){
+  
+  // ========= PDF Canvas Preview (ohne Browser-PDF-Toolbar) =========
+  // Rendert die ERZEUGTE Bestellformular-PDF (Blob-URL) in ein Canvas.
+  // Fallback: iFrame, falls pdf.js nicht verfügbar ist.
+  async function ensurePdfJs(){
+    // Wenn schon geladen → ok
+    if(window.pdfjsLib && window.pdfjsLib.getDocument) return;
+
+    // pdf.js dynamisch laden (CDN) – funktioniert bei Hosting (Vercel/Hetzner).
+    // Hinweis: Bei file:// offline kann das CDN blockiert sein → dann greift Fallback iFrame.
+    await new Promise((resolve, reject)=>{
+      const s = document.createElement('script');
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+    try{
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }catch(e){}
+  }
+
+  async function renderBestellCanvas(url){
+    const canvas = document.getElementById('pdfCanvas');
+    const wrap = document.getElementById('pdfA4Wrap');
+    const iframe = document.getElementById('pdfPreview'); // fallback
+    if(!canvas || !wrap) return;
+
+    // Wenn kein PDF da ist → Canvas leeren
+    if(!url || url === 'about:blank'){
+      const ctx = canvas.getContext('2d');
+      if(ctx){ ctx.clearRect(0,0,canvas.width,canvas.height); }
+      return;
+    }
+
+    // pdf.js laden
+    await ensurePdfJs();
+
+    // Blob-URL → ArrayBuffer
+    const res = await fetch(url);
+    if(!res.ok) throw new Error('PDF konnte nicht geladen werden (Preview).');
+    const data = await res.arrayBuffer();
+
+    const loadingTask = window.pdfjsLib.getDocument({ data });
+    const pdf = await loadingTask.promise;
+    const page = await pdf.getPage(1);
+
+    // A4 Wrapper: canvas an Wrapper anpassen (mit devicePixelRatio für Schärfe)
+    const dpr = window.devicePixelRatio || 1;
+    const viewport = page.getViewport({ scale: 1 });
+
+    const targetW = wrap.clientWidth || 794;
+    const targetH = wrap.clientHeight || 1123;
+
+    const scale = Math.min(targetW / viewport.width, targetH / viewport.height);
+    const vp = page.getViewport({ scale });
+
+    canvas.width = Math.floor(vp.width * dpr);
+    canvas.height = Math.floor(vp.height * dpr);
+    canvas.style.width = Math.floor(vp.width) + 'px';
+    canvas.style.height = Math.floor(vp.height) + 'px';
+
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // iFrame ausblenden, weil Canvas jetzt rendert
+    if(iframe) iframe.style.display = 'none';
+
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+  }
+
+async function fetchArrayBuffer(url){
     const res = await fetch(url);
     if(!res.ok){
       throw new Error(`PDF konnte nicht geladen werden (${res.status}): ${url}`);
@@ -1920,6 +1923,9 @@ setTextSafe('vers_10', versValue);
   // Extra-Feld (falls vorhanden): qty_13
   setTextSafe('qty_13', extraWashableCount ? String(extraWashableCount) : '');
 
+  // ✅ PG51-Checkbox automatisch setzen, wenn Extra > 0 (UI-Box → PDF-Checkbox)
+  checkSafe('chk_pg51', Number(extraWashableCount||0) > 0);
+
   // IMPORTANT: Beratung in den Geschäftsräumen NIE setzen
   checkSafe('chk_form_2', false);
 
@@ -2029,11 +2035,16 @@ try{
       if(status) status.textContent = 'Formulare werden erzeugt …';
 
       // Alte Blob-URLs freigeben
+      if(__bestellUrl){ try{ URL.revokeObjectURL(__bestellUrl); }catch{} __bestellUrl = null; }
       if(__anlageUrl)  { try{ URL.revokeObjectURL(__anlageUrl);  }catch{} __anlageUrl  = null; }
       if(__wechselUrl) { try{ URL.revokeObjectURL(__wechselUrl); }catch{} __wechselUrl = null; }
 
       // Wechselerklärung nur wenn bezugsCheck UND consent2 beide aktiv
       __wechselEnabled = !!(payload?.insurance?.einverstaendnis?.consent2 && payload?.insurance?.bezieht_bereits_pflegehilfsmittel);
+
+      // Bestellformular immer erzeugen (Vorschau)
+      const bestellBlob = await generateBestellformularPdf(payload);
+      __bestellUrl = URL.createObjectURL(bestellBlob);
 
       // Anlage 2 immer erzeugen
       const anlageBlob = await generateFilledPdf(payload);
@@ -2046,17 +2057,13 @@ try{
       }else{
         __wechselUrl = null;
       }
-
-      // Immer mit Anlage 2 (Dok 1) starten
-      __pdfDoc = 1;
-      showCurrentDoc();
-
-      if(status) status.textContent = (__wechselEnabled ? 'Formulare bereit – nutze „Weiter → Wechselerklärung" zum Umschalten.' : 'Anlage 2 bereit – Wechselerklärung wurde nicht gewählt.');
+      // Vorschau: immer Bestellformular
+      showPreview();
+if(status) status.textContent = (__wechselEnabled ? 'Bestellformular eingebettet – Download enthält zusätzlich Anlage 2 + Wechselerklärung.' : 'Bestellformular eingebettet – Download enthält Anlage 2.');
     }catch(err){
       console.error(err);
       if(status) status.textContent = 'Fehler beim Erstellen der PDFs. Vorschau zeigt Vorlage.';
-      __pdfDoc = 1;
-      showCurrentDoc();
+      showPreview();
     }finally{
       __pdfBusy = false;
     }
@@ -2069,6 +2076,161 @@ try{
     const a = document.createElement('a');
     a.href = url;
     a.download = 'Anlage2_Ausgefuellt.pdf';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>{ try{ URL.revokeObjectURL(url);}catch{} }, 2000);
+  }
+
+  // =========================================================
+  // Bestellformular (Lieferschein) automatisch als PDF erzeugen
+  // Layout orientiert sich 1:1 am Screenshot (Bild 2)
+  // =========================================================
+  function _fmtDate(d){
+    const dd = String(d.getDate()).padStart(2,'0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const yyyy = String(d.getFullYear());
+    return `${dd}.${mm}.${yyyy}`;
+  }
+
+  function _lieferscheinNr(payload){
+    try{
+      const part1 = String(Math.floor(Math.random()*900000)+100000);
+      const part2 = String(Math.floor(Math.random()*9000)+1000);
+      return `PB-${part1}-${part2}`;
+    }catch(e){
+      return `PB-${Math.floor(Math.random()*9000000)+1000000}`;
+    }
+  }
+
+  function _customerNr(payload){
+    const c = payload?.customer || {};
+    const base = `${(c.nachname||'').trim()}${(c.vorname||'').trim()}`.replace(/\s+/g,'');
+    if(base) return base.slice(0,18);
+    return '';
+  }
+
+  function _orderRows(payload){
+    const qtyMap = Object.fromEntries((payload?.items||[]).map(it => [it.id, Number(it.qty||0)]));
+    const rows = [];
+    (PG54_ROWS||[]).forEach((r) => {
+      const q = Number(qtyMap[r.key]||0);
+      if(q > 0){
+        const bez = (r.key === "gloves" && payload?.options?.gloves?.size) ? `${r.label} Gr. ${payload.options.gloves.size}` : r.label;
+        rows.push({ pflegepos: r.pos, menge: q, bez });
+      }
+    });
+    const extra = Number(payload?.extras?.washable_bettschutzeinlagen||0);
+    if(extra > 0){
+      rows.push({ pflegepos: '—', menge: extra, bez: 'Waschbare Bettschutzeinlagen (Extra)' });
+    }
+    return rows;
+  }
+
+  async function generateBestellformularPdf(payload){
+    const { PDFDocument } = window.PDFLib || {};
+    if(!PDFDocument) throw new Error('PDFLib nicht verfügbar (CDN nicht geladen).');
+
+    // Statisches Template laden (kannst du mit PDF-XChange bearbeiten)
+    const tplRes = await fetch('bestellformular.pdf', { cache: 'no-store' });
+    if(!tplRes.ok) throw new Error('bestellformular.pdf nicht gefunden.');
+    const tplBytes = await tplRes.arrayBuffer();
+
+    const pdfDoc = await PDFDocument.load(tplBytes);
+    const form = pdfDoc.getForm();
+
+    const c = payload?.customer || {};
+    const today = new Date();
+    const dateStr = _fmtDate(today);
+
+    // Kundenanschrift
+    const name = `${(c.vorname||'').trim()} ${(c.nachname||'').trim()}`.trim();
+    const street = `${(c.strasse||'').trim()} ${(c.hausnr||'').trim()}`.trim();
+    const city = `${(c.plz||'').trim()} ${(c.stadt||'').trim()}`.trim();
+
+    const safeSet = (fieldName, value) => {
+      try{
+        const f = form.getTextField(fieldName);
+        f.setText(String(value ?? ''));
+      }catch(e){
+        // Feld evtl. im Template gelöscht/umbenannt – dann einfach ignorieren
+      }
+    };
+
+    safeSet('K_NAME', name);
+    safeSet('K_STRASSE', street);
+    safeSet('K_ORT', city);
+
+    // Meta rechts
+    safeSet('LS_NR', _lieferscheinNr(payload));
+    safeSet('DATUM', dateStr);
+    safeSet('LIEFERDATUM', dateStr);
+    safeSet('KUNDEN_NR', _customerNr(payload));
+
+    // Positionen
+    const rows = _orderRows(payload) || [];
+    for(let i=0;i<12;i++){
+      const r = rows[i];
+      const idx = String(i+1).padStart(2,'0');
+      safeSet(`POS_${idx}`, r ? String(i+1) : '');
+      safeSet(`PN_${idx}`, r ? (r.pflegepos || '') : '');
+      safeSet(`MENGE_${idx}`, r ? (r.menge != null ? String(r.menge) : '') : '');
+      safeSet(`BEZ_${idx}`, r ? (r.bez || '') : '');
+    }
+
+    // Flatten (damit nichts mehr anklickbar ist)
+    try{ form.flatten(); }catch(e){}
+
+    const bytes = await pdfDoc.save();
+    return new Blob([bytes], { type: 'application/pdf' });
+  }
+
+
+  // =========================================================
+  // 1 Button: PDF Download (Anlage 2 immer + optional Wechselerklärung)
+  // - Wenn Wechselerklärung NICHT gewählt: nur Anlage 2 herunterladen
+  // - Wenn gewählt: Anlage 2 + Wechselerklärung zu EINEM PDF zusammenführen
+  // =========================================================
+  async function downloadAllPdfs(payload){
+    const { PDFDocument } = window.PDFLib || {};
+    if(!PDFDocument) throw new Error('PDFLib nicht verfügbar (CDN nicht geladen).');
+
+    // Wechselerklärung nur wenn bezugsCheck UND consent2 beide aktiv
+    const wechselEnabled = !!(payload?.insurance?.einverstaendnis?.consent2 && payload?.insurance?.bezieht_bereits_pflegehilfsmittel);
+
+    // Immer erzeugen: Bestellformular + Anlage 2
+    const bestellBlob = await generateBestellformularPdf(payload);
+    const anlageBlob  = await generateFilledPdf(payload);
+
+    // Optional: Wechselerklärung
+    const wechselBlob = wechselEnabled ? await generateWechselPdf(payload) : null;
+
+    // Zusammenführen in EIN PDF (Reihenfolge: Bestellformular -> Anlage 2 -> (optional) Wechselerklärung)
+    const outDoc = await PDFDocument.create();
+
+    const bestellBytes = await bestellBlob.arrayBuffer();
+    const bestellDoc = await PDFDocument.load(bestellBytes);
+    const bestellPages = await outDoc.copyPages(bestellDoc, bestellDoc.getPageIndices());
+    bestellPages.forEach(p => outDoc.addPage(p));
+
+    const anlageBytes = await anlageBlob.arrayBuffer();
+    const anlageDoc = await PDFDocument.load(anlageBytes);
+    const anlagePages = await outDoc.copyPages(anlageDoc, anlageDoc.getPageIndices());
+    anlagePages.forEach(p => outDoc.addPage(p));
+
+    if(wechselBlob){
+      const wechselBytes = await wechselBlob.arrayBuffer();
+      const wechselDoc = await PDFDocument.load(wechselBytes);
+      const wechselPages = await outDoc.copyPages(wechselDoc, wechselDoc.getPageIndices());
+      wechselPages.forEach(p => outDoc.addPage(p));
+    }
+
+    const mergedBytes = await outDoc.save();
+    const mergedBlob = new Blob([mergedBytes], { type: 'application/pdf' });
+    const url = URL.createObjectURL(mergedBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = wechselBlob ? 'Pflegehilfsmittel_Paket_mit_Wechselerklaerung.pdf' : 'Pflegehilfsmittel_Paket.pdf';
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -2168,9 +2330,6 @@ try{
       alert('Wechselerklärung wird nur erzeugt, wenn beide Häkchen gesetzt sind ("Beziehen Sie bereits..." + Marina Pflegebox).');
       return;
     }
-    const btn = document.getElementById('btnWechsel');
-    const origText = btn ? btn.textContent : '';
-    if (btn) { btn.disabled = true; btn.textContent = 'Wird erstellt …'; }
     try {
       const blob = await generateWechselPdf(payload);
       const url = URL.createObjectURL(blob);
@@ -2184,8 +2343,6 @@ try{
     } catch (err) {
       console.error('Wechselerklärung Fehler:', err);
       alert('Fehler beim Erstellen der Wechselerklärung: ' + err.message);
-    } finally {
-      if (btn) { btn.disabled = false; btn.textContent = origText; }
     }
   }
 
@@ -2342,42 +2499,25 @@ try{
   document.getElementById("back3").addEventListener("click", tryBack);
   document.getElementById("back4").addEventListener("click", tryBack);
 
-  document.getElementById("btnCreate").addEventListener("click", () => {
-    renderBar();
-    if(!inBudget()) return;
-    if(!glovesSizeOk()) return;
-    const p = buildOutput(true);
-    // ✅ direkt zur Übersicht (Schritt 4) – immer mit Anlage 2 (Dok 1) beginnen
-    setStep(3);
-    goToPdfPage(1);
-    // PDF anzeigen
-    renderFilledPdfPreview(p);
-    // kein Auto-Download mehr – PDF wird im neuen Tab geöffnet
-    // downloadFilledPdf(p);
-  });
-
-  document.getElementById("btnCopy").addEventListener("click", async () => {
-    const txt = out.textContent || "{}";
-    try {
-      await navigator.clipboard.writeText(txt);
-      const prev = document.getElementById("btnCopy").textContent;
-      document.getElementById("btnCopy").textContent = "Kopiert ✅";
-      setTimeout(() => (document.getElementById("btnCopy").textContent = prev), 1000);
-    } catch {
-      alert("Kopieren nicht möglich – bitte manuell markieren und kopieren.");
+  // PDF Download (ein Button)
+  if(btnDownload) btnDownload.addEventListener('click', async () => {
+    try{
+      renderBar();
+      if(!inBudget()) return;
+      if(!glovesSizeOk()) return;
+      const p = buildOutput(false);
+      // Wenn keine Einverständnisse, keine PDF
+      const c1 = !!p?.insurance?.einverstaendnis?.consent1;
+      const c2 = !!p?.insurance?.einverstaendnis?.consent2;
+      if(!(c1 || c2)){
+        alert('Bitte aktiviere zuerst mindestens ein Einverständnis-Häkchen in Schritt 3.');
+        return;
+      }
+      await downloadAllPdfs(p);
+    }catch(e){
+      console.error(e);
+      alert('PDF Download fehlgeschlagen. Bitte erneut versuchen.');
     }
-  });
-
-  if(btnPrint) btnPrint.addEventListener('click', () => {
-    // Stelle sicher, dass die Vorschau aktuell ist
-    const p = buildOutput(false);
-    downloadFilledPdf(p);
-  });
-
-  const btnWechsel = document.getElementById('btnWechsel');
-  if(btnWechsel) btnWechsel.addEventListener('click', () => {
-    const p = buildOutput(false);
-    downloadWechselPdf(p);
   });
 
   document.getElementById("btnReset").addEventListener("click", () => {
@@ -2626,109 +2766,12 @@ const vaEl = document.getElementById('versicherungsart');
   });
 
 
-  // ============================================================
-  // 📤 AN DASHBOARD SENDEN
-  // ============================================================
-  function sendToDashboard() {
-    const payload = buildOutput(false);
-
-    // Validierung
-    const v = payload.customer;
-    if (!v.vorname || !v.nachname) {
-      alert('Bitte zuerst Vor- und Nachname ausfüllen (Schritt 2).');
-      return;
-    }
-    if (!payload.items || payload.items.length === 0) {
-      alert('Bitte zuerst Produkte auswählen (Schritt 1).');
-      return;
-    }
-
-    // Daten für Dashboard aufbereiten
-    const kunde = {
-      id: 'K_' + Date.now(),
-      vorname: v.vorname || '',
-      nachname: v.nachname || '',
-      geburtsdatum: v.geburtsdatum || '',
-      pflegegrad: payload.pflegegrad || '',
-      krankenkasse: payload.insurance?.provider || '',
-      versichertennr: payload.insurance?.versichertennummer || '',
-      faxnummer: '',
-      faxbetreff: 'Pflegehilfsmittel – Antrag',
-      adresse: (v.strasse || '') + ' ' + (v.hausnr || ''),
-      plz: v.plz || '',
-      ort: v.stadt || '',
-      telefon: payload.insurance?.telefon || '',
-      email: payload.insurance?.email || '',
-      anmerkungen: v.note || '',
-      status: 'offen',
-      quelle: 'konfigurator',
-      produkte: payload.items.map((it, idx) => ({
-        name: it.name,
-        feld: 'qty_' + (idx + 1),
-        menge: it.qty
-      }))
-    };
-
-    // In localStorage speichern (Dashboard liest es von dort)
-    try {
-      const existing = JSON.parse(localStorage.getItem('marina_kunden') || '[]');
-      // Duplikat prüfen (gleicher Vor+Nachname)
-      const dupIdx = existing.findIndex(k =>
-        k.vorname === kunde.vorname && k.nachname === kunde.nachname
-      );
-      if (dupIdx >= 0) {
-        if (!confirm(`Kunde "${kunde.vorname} ${kunde.nachname}" existiert bereits. Aktualisieren?`)) return;
-        existing[dupIdx] = { ...existing[dupIdx], ...kunde };
-      } else {
-        existing.push(kunde);
-      }
-      localStorage.setItem('marina_kunden', JSON.stringify(existing));
-
-      // Aktivität loggen
-      const akt = JSON.parse(localStorage.getItem('marina_akt') || '[]');
-      akt.unshift({
-        text: `📤 <b>${kunde.vorname} ${kunde.nachname}</b> vom Konfigurator empfangen`,
-        zeit: new Date().toLocaleTimeString('de', {hour:'2-digit',minute:'2-digit'}),
-        farbe: '#27ae60'
-      });
-      if (akt.length > 15) akt.pop();
-      localStorage.setItem('marina_akt', JSON.stringify(akt));
-
-      // Erfolgsmeldung
-      const btn = document.getElementById('btnSendDashboard');
-      const orig = btn.textContent;
-      btn.textContent = '✅ Im Dashboard gespeichert!';
-      btn.style.background = '#1a7f37';
-      setTimeout(() => {
-        btn.textContent = orig;
-        btn.style.background = '#27ae60';
-      }, 3000);
-
-      // Dashboard in neuem Tab öffnen (optional)
-      if (confirm('✅ Kunde wurde ans Dashboard gesendet!\n\nDashboard jetzt öffnen?')) {
-        window.open('./dashboard.html', '_blank');
-      }
-
-    } catch (err) {
-      alert('Fehler beim Senden: ' + err.message);
-    }
-  }
-
-  const btnSendDashboard = document.getElementById('btnSendDashboard');
-  if (btnSendDashboard) {
-    btnSendDashboard.addEventListener('click', sendToDashboard);
-  }
-
-  // ============================================================
-  // END DASHBOARD KOMMUNIKATION
-  // ============================================================
-
   // Init
   document.getElementById("y").textContent = String(new Date().getFullYear());
   renderProducts();
   bindExtraWashableUI();
   renderBar();
-  bindPdfNav();
+  // PDF-Navigation entfernt (nur Bestellformular-Vorschau)
   setStep(0);
 </script>
 
