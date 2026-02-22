@@ -631,7 +631,7 @@
               <button class="danger" id="btnReset" type="button">Zurücksetzen</button>
             </div>
             <div class="right">
-              <button class="secondary" id="btnCheckout" type="button">Bestellung abschließen</button>
+              <button class="primary" id="btnCreateOrder" type="button">Bestellung erstellen</button>
               <button class="primary" id="btnPdfDownload" type="button">PDF Download</button>
             </div>
           </div>
@@ -762,7 +762,7 @@
   const printArea = document.getElementById("printArea");
 
   const btnDownload = document.getElementById("btnPdfDownload");
-  const btnCheckout = document.getElementById("btnCheckout");
+  const btnCreateOrder = document.getElementById("btnCreateOrder");
   const btnSignInsured = document.getElementById("btnSignInsured");
   const btnSignCare = document.getElementById("btnSignCare");
   const signStatusInsured = document.getElementById("signStatusInsured");
@@ -2188,12 +2188,27 @@ if(status) status.textContent = (__wechselEnabled ? 'Bestellformular eingebettet
   }
 
 
+  
   // =========================================================
-  // 1 Button: PDF Download (Anlage 2 immer + optional Wechselerklärung)
-  // - Wenn Wechselerklärung NICHT gewählt: nur Anlage 2 herunterladen
-  // - Wenn gewählt: Anlage 2 + Wechselerklärung zu EINEM PDF zusammenführen
+  // E-Mail Versand (Bestellung erstellen)
+  // - Frontend erzeugt das gleiche PDF-Paket wie beim Download
+  // - Versand erfolgt über /api/send-email (Server/SMTP)
   // =========================================================
-  async function downloadAllPdfs(payload){
+  const ORDER_EMAIL_TO = 'kontakt@pb-marina.de'; // <— Empfänger anpassen
+  const EMAIL_API_ENDPOINT = './api/send-email'; // <— Server-Endpunkt
+
+  const blobToBase64 = (blob) => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = String(reader.result || '');
+      const base64 = dataUrl.split(',')[1] || '';
+      resolve(base64);
+    };
+    reader.onerror = () => reject(reader.error || new Error('FileReader Fehler'));
+    reader.readAsDataURL(blob);
+  });
+
+  async function buildMergedPdf(payload){
     const { PDFDocument } = window.PDFLib || {};
     if(!PDFDocument) throw new Error('PDFLib nicht verfügbar (CDN nicht geladen).');
 
@@ -2210,22 +2225,100 @@ if(status) status.textContent = (__wechselEnabled ? 'Bestellformular eingebettet
     // Zusammenführen in EIN PDF (Reihenfolge: Bestellformular -> Anlage 2 -> (optional) Wechselerklärung)
     const outDoc = await PDFDocument.create();
 
-    const bestellBytes = await bestellBlob.arrayBuffer();
-    const bestellDoc = await PDFDocument.load(bestellBytes);
-    const bestellPages = await outDoc.copyPages(bestellDoc, bestellDoc.getPageIndices());
-    bestellPages.forEach(p => outDoc.addPage(p));
+    const addBlob = async (b) => {
+      if(!b) return;
+      const bytes = await b.arrayBuffer();
+      const doc = await PDFDocument.load(bytes);
+      const pages = await outDoc.copyPages(doc, doc.getPageIndices());
+      pages.forEach(p => outDoc.addPage(p));
+    };
 
-    const anlageBytes = await anlageBlob.arrayBuffer();
-    const anlageDoc = await PDFDocument.load(anlageBytes);
-    const anlagePages = await outDoc.copyPages(anlageDoc, anlageDoc.getPageIndices());
-    anlagePages.forEach(p => outDoc.addPage(p));
+    await addBlob(bestellBlob);
+    await addBlob(anlageBlob);
+    await addBlob(wechselBlob);
 
-    if(wechselBlob){
-      const wechselBytes = await wechselBlob.arrayBuffer();
-      const wechselDoc = await PDFDocument.load(wechselBytes);
-      const wechselPages = await outDoc.copyPages(wechselDoc, wechselDoc.getPageIndices());
-      wechselPages.forEach(p => outDoc.addPage(p));
+    const mergedBytes = await outDoc.save();
+    const mergedBlob = new Blob([mergedBytes], { type: 'application/pdf' });
+    const filename = wechselBlob ? 'Pflegehilfsmittel_Paket_mit_Wechselerklaerung.pdf' : 'Pflegehilfsmittel_Paket.pdf';
+    return { blob: mergedBlob, filename, wechsel: !!wechselBlob };
+  }
+
+  async function sendOrderEmail(payload){
+    // Minimale Checks wie beim Download
+    renderBar();
+    if(!inBudget()) return;
+    if(!glovesSizeOk()) return;
+
+    const c1 = !!payload?.insurance?.einverstaendnis?.consent1;
+    const c2 = !!payload?.insurance?.einverstaendnis?.consent2;
+    if(!(c1 || c2)){
+      alert('Bitte aktiviere zuerst mindestens ein Einverständnis-Häkchen in Schritt 3.');
+      return;
     }
+
+    // Paket erzeugen
+    const { blob, filename, wechsel } = await buildMergedPdf(payload);
+    const pdfBase64 = await blobToBase64(blob);
+
+    const c = payload?.customer || {};
+    const subject = `Bestellung Pflegehilfsmittel – ${String(c.vorname||'').trim()} ${String(c.nachname||'').trim()}`.trim();
+    const text =
+`Neue Bestellung aus dem Konfigurator.
+
+Kunde: ${String(c.vorname||'').trim()} ${String(c.nachname||'').trim()}
+Adresse: ${String(c.strasse||'').trim()} ${String(c.hausnr||'').trim()}, ${String(c.plz||'').trim()} ${String(c.stadt||'').trim()}
+Telefon: ${String(c.telefon||'').trim()}
+E-Mail: ${String(c.email||'').trim()}
+
+Enthaltene Formulare: Bestellformular + Anlage 2${wechsel ? ' + Wechselerklärung' : ''}
+
+(Automatisch gesendet)`;
+
+    // An API senden (Server muss SMTP konfiguriert haben)
+    const res = await fetch(EMAIL_API_ENDPOINT, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: ORDER_EMAIL_TO,
+        subject,
+        text,
+        filename,
+        pdfBase64,
+        customer: c
+      })
+    });
+
+    if(!res.ok){
+      let msg = 'E-Mail Versand fehlgeschlagen.';
+      try{
+        const j = await res.json();
+        if(j && j.error) msg += ' ' + j.error;
+      }catch(e){}
+      throw new Error(msg);
+    }
+
+    return true;
+  }
+
+
+// =========================================================
+  // 1 Button: PDF Download (Anlage 2 immer + optional Wechselerklärung)
+  // - Wenn Wechselerklärung NICHT gewählt: nur Anlage 2 herunterladen
+  // - Wenn gewählt: Anlage 2 + Wechselerklärung zu EINEM PDF zusammenführen
+  // =========================================================
+
+  async function downloadAllPdfs(payload){
+    const { blob, filename } = await buildMergedPdf(payload);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=>{ try{ URL.revokeObjectURL(url);}catch{} }, 2000);
+  }
+
 
     const mergedBytes = await outDoc.save();
     const mergedBlob = new Blob([mergedBytes], { type: 'application/pdf' });
@@ -2238,91 +2331,6 @@ if(status) status.textContent = (__wechselEnabled ? 'Bestellformular eingebettet
     a.remove();
     setTimeout(()=>{ try{ URL.revokeObjectURL(url);}catch{} }, 2000);
   }
-
-
-// =========================================================
-// Bestellung abschließen: erzeugt das ausgefüllte Paket-PDF und sendet es per E-Mail (Server-Endpoint nötig)
-// =========================================================
-async function buildMergedPaketPdfBlob(payload){
-  const { PDFDocument } = window.PDFLib || {};
-  if(!PDFDocument) throw new Error('PDFLib nicht verfügbar (CDN nicht geladen).');
-
-  // Wechselerklärung nur wenn bezugsCheck UND consent2 beide aktiv
-  const wechselEnabled = !!(payload?.insurance?.einverstaendnis?.consent2 && payload?.insurance?.bezieht_bereits_pflegehilfsmittel);
-
-  // Immer erzeugen: Bestellformular + Anlage 2
-  const bestellBlob = await generateBestellformularPdf(payload);
-  const anlageBlob  = await generateFilledPdf(payload);
-
-  // Optional: Wechselerklärung
-  const wechselBlob = wechselEnabled ? await generateWechselPdf(payload) : null;
-
-  // Zusammenführen in EIN PDF (Reihenfolge: Bestellformular -> Anlage 2 -> (optional) Wechselerklärung)
-  const outDoc = await PDFDocument.create();
-
-  const bestellDoc = await PDFDocument.load(await bestellBlob.arrayBuffer());
-  (await outDoc.copyPages(bestellDoc, bestellDoc.getPageIndices())).forEach(p => outDoc.addPage(p));
-
-  const anlageDoc = await PDFDocument.load(await anlageBlob.arrayBuffer());
-  (await outDoc.copyPages(anlageDoc, anlageDoc.getPageIndices())).forEach(p => outDoc.addPage(p));
-
-  if(wechselBlob){
-    const wechselDoc = await PDFDocument.load(await wechselBlob.arrayBuffer());
-    (await outDoc.copyPages(wechselDoc, wechselDoc.getPageIndices())).forEach(p => outDoc.addPage(p));
-  }
-
-  const mergedBytes = await outDoc.save();
-  return {
-    blob: new Blob([mergedBytes], { type: 'application/pdf' }),
-    filename: wechselBlob ? 'Pflegehilfsmittel_Paket_mit_Wechselerklaerung.pdf' : 'Pflegehilfsmittel_Paket.pdf'
-  };
-}
-
-async function sendOrderEmail(payload){
-  const statusEl = document.getElementById('pdfStatus');
-  const btn = document.getElementById('btnCheckout');
-  const oldTxt = btn ? btn.textContent : '';
-  try{
-    if(btn){ btn.disabled = true; btn.textContent = 'Sende…'; }
-    if(statusEl) statusEl.textContent = 'Erzeuge PDF-Paket…';
-
-    const { blob, filename } = await buildMergedPaketPdfBlob(payload);
-
-    if(statusEl) statusEl.textContent = 'Sende an pflegebox@pb-marina.de…';
-
-    const ab = await blob.arrayBuffer();
-const bytes = new Uint8Array(ab);
-let binary = '';
-for(let i=0;i<bytes.length;i++){ binary += String.fromCharCode(bytes[i]); }
-const fileBase64 = btoa(binary);
-
-const res = await fetch('./api/send-order', {
-  method:'POST',
-  headers: { 'Content-Type':'application/json' },
-  body: JSON.stringify({
-    to: 'pflegebox@pb-marina.de',
-    subject: 'Neue Pflegebox-Bestellung (Konfigurator)',
-    message: 'Im Anhang findest du die ausgefüllten Formulare aus dem Konfigurator.',
-    filename,
-    fileBase64
-  })
-});
-    const data = await res.json().catch(()=>({}));
-    if(!res.ok){
-      throw new Error(data?.error || ('Senden fehlgeschlagen (HTTP '+res.status+')'));
-    }
-
-    if(statusEl) statusEl.textContent = '✅ Bestellung gesendet!';
-    alert('✅ Bestellung wurde an pflegebox@pb-marina.de gesendet.');
-  }catch(err){
-    console.error(err);
-    if(statusEl) statusEl.textContent = '❌ Fehler: ' + (err?.message || 'Unbekannt');
-    alert('❌ Konnte nicht senden: ' + (err?.message || 'Unbekannt'));
-  }finally{
-    if(btn){ btn.disabled = false; btn.textContent = oldTxt; }
-  }
-}
-
 
   // =========================================================
   // Wechselerklärung automatisch ausfüllen und herunterladen
@@ -2586,29 +2594,6 @@ const res = await fetch('./api/send-order', {
   document.getElementById("back3").addEventListener("click", tryBack);
   document.getElementById("back4").addEventListener("click", tryBack);
 
-
-// Bestellung abschließen (E-Mail senden)
-if(btnCheckout) btnCheckout.addEventListener('click', async () => {
-  try{
-    renderBar();
-    if(!inBudget()) return;
-    if(!glovesSizeOk()) return;
-    const p = buildOutput(false);
-
-    // Wenn keine Einverständnisse, keine PDF
-    const c1 = !!p?.insurance?.einverstaendnis?.consent1;
-    const c2 = !!p?.insurance?.einverstaendnis?.consent2;
-    if(!(c1 && c2)){
-      alert('Bitte zuerst beide Einverständnisse bestätigen.');
-      return;
-    }
-
-    await sendOrderEmail(p);
-  }catch(e){
-    console.error(e);
-    alert('Fehler beim Abschließen: ' + (e?.message || 'Unbekannt'));
-  }
-});
   // PDF Download (ein Button)
   if(btnDownload) btnDownload.addEventListener('click', async () => {
     try{
@@ -2627,6 +2612,19 @@ if(btnCheckout) btnCheckout.addEventListener('click', async () => {
     }catch(e){
       console.error(e);
       alert('PDF Download fehlgeschlagen. Bitte erneut versuchen.');
+    }
+  });
+
+
+  // Bestellung erstellen -> PDF-Paket per E-Mail versenden
+  if(btnCreateOrder) btnCreateOrder.addEventListener('click', async () => {
+    try{
+      const p = buildOutput(false);
+      await sendOrderEmail(p);
+      alert('Bestellung wurde per E-Mail versendet.');
+    }catch(e){
+      console.error(e);
+      alert((e && e.message) ? e.message : 'E-Mail Versand fehlgeschlagen.');
     }
   });
 

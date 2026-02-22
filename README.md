@@ -1,33 +1,28 @@
-# Marina Pflegebox Konfigurator
+# Marina Pflegebox Konfigurator (mit E-Mail Versand)
 
-**Offline nutzbar**: Einfach `index.html` im Browser öffnen.
+## Offline
+Du kannst den Konfigurator weiterhin **offline** mit `index.html` öffnen.
+➡️ Dann funktionieren aber **nur Downloads** – der E-Mail Versand braucht einen Server.
 
-## Anpassen
-- Produkte/Preise: im Script-Block im Array `products`.
-- Start-Budget: im Feld `value="42"` (oder zur Laufzeit im UI ändern).
+## E-Mail Versand aktivieren (empfohlen)
+Damit der Button **„Bestellung erstellen“** die ausgefüllten PDFs automatisch per E-Mail versendet, starte den Konfigurator über den mitgelieferten Node-Server:
 
-## Export
-- Klick auf **„Bestellung erstellen“** erzeugt JSON im Export-Feld.
-- **„JSON kopieren“** kopiert den Export in die Zwischenablage.
+1) Node.js installieren (LTS)
+2) Im Ordner (wo `server.js` liegt) öffnen:
+```bash
+npm install
+npm start
+```
+3) Browser öffnen:
+`http://localhost:3000`
 
-Erstellt am: 2026-02-07
+### SMTP Zugangsdaten
+- Datei `.env` anlegen (Vorlage: `.env.example`)
+- SMTP Daten eintragen
 
+## Button / Empfänger anpassen
+In `index.html`:
+- `ORDER_EMAIL_TO` (Empfänger)
+- `EMAIL_API_ENDPOINT` (API Pfad)
 
-## Bestellung abschließen (E-Mail Versand)
-
-Im Konfigurator gibt es den Button **„Bestellung abschließen“**.  
-Beim Klick wird ein PDF-Paket (Bestellformular + Anlage 2 + optional Wechselerklärung) erzeugt und an **pflegebox@pb-marina.de** gesendet.
-
-### Wichtig: SMTP für den Versand konfigurieren (z. B. Vercel / Node Hosting)
-
-Lege folgende Environment-Variablen an:
-
-- `SMTP_HOST` (z. B. smtp.strato.de / smtp.gmail.com)
-- `SMTP_PORT` (meist 587)
-- `SMTP_USER` (Absender-Mailadresse / SMTP-Login)
-- `SMTP_PASS` (SMTP-Passwort)
-- optional `SMTP_SECURE=true` (wenn Port 465 genutzt wird)
-
-Der Versand läuft über `api/send-order.js` (Nodemailer).
-
-> Hinweis: Bei rein statischem Hosting ohne Server/API funktioniert der E-Mail Versand nicht.
+Erstellt am: 2026-02-22
