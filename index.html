@@ -267,6 +267,7 @@
     }
 
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 </head>
 <body>
 
@@ -632,6 +633,7 @@
             </div>
             <div class="right">
               <button class="primary" id="btnPdfDownload" type="button">PDF Download</button>
+              <button class="primary" id="btnBestellung" type="button" style="background:#c0392b; border-color:#c0392b; margin-left:8px;">Bestellung abschließen</button>
             </div>
           </div>
 
@@ -651,7 +653,7 @@
           </div>
 
           <div class="muted" style="margin-top:8px;">Hinweis: Anlage 2 und (optional) Wechselerklärung werden nicht angezeigt, sondern nur beim Download erzeugt.</div>
-
+<pre id="output" style="display:none;"></pre>
         </div>
 
       </section>
@@ -698,6 +700,7 @@
 </footer>
 
 <script src="https://unpkg.com/pdf-lib/dist/pdf-lib.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script>
   // Kleine Inline-Icons (damit die ZIP ohne weitere Bilddateien funktioniert)
   const ICON = (label) =>
@@ -2187,50 +2190,36 @@ if(status) status.textContent = (__wechselEnabled ? 'Bestellformular eingebettet
 
 
   // =========================================================
-  // 1 Button: PDF Download (Anlage 2 immer + optional Wechselerklärung)
-  // - Wenn Wechselerklärung NICHT gewählt: nur Anlage 2 herunterladen
-  // - Wenn gewählt: Anlage 2 + Wechselerklärung zu EINEM PDF zusammenführen
+  // 1 Button: PDF Download -> ALLE erzeugten PDFs als ZIP herunterladen
+  // - Immer: Bestellformular + Anlage 2
+  // - Optional: Wechselerklärung (nur wenn consent2 + bezugsCheck aktiv)
   // =========================================================
   async function downloadAllPdfs(payload){
-    const { PDFDocument } = window.PDFLib || {};
-    if(!PDFDocument) throw new Error('PDFLib nicht verfügbar (CDN nicht geladen).');
+    const JSZip = window.JSZip;
+    if(!JSZip) throw new Error('JSZip nicht verfügbar (CDN nicht geladen).');
 
     // Wechselerklärung nur wenn bezugsCheck UND consent2 beide aktiv
     const wechselEnabled = !!(payload?.insurance?.einverstaendnis?.consent2 && payload?.insurance?.bezieht_bereits_pflegehilfsmittel);
 
-    // Immer erzeugen: Bestellformular + Anlage 2
+    // PDFs erzeugen
     const bestellBlob = await generateBestellformularPdf(payload);
     const anlageBlob  = await generateFilledPdf(payload);
-
-    // Optional: Wechselerklärung
     const wechselBlob = wechselEnabled ? await generateWechselPdf(payload) : null;
 
-    // Zusammenführen in EIN PDF (Reihenfolge: Bestellformular -> Anlage 2 -> (optional) Wechselerklärung)
-    const outDoc = await PDFDocument.create();
-
-    const bestellBytes = await bestellBlob.arrayBuffer();
-    const bestellDoc = await PDFDocument.load(bestellBytes);
-    const bestellPages = await outDoc.copyPages(bestellDoc, bestellDoc.getPageIndices());
-    bestellPages.forEach(p => outDoc.addPage(p));
-
-    const anlageBytes = await anlageBlob.arrayBuffer();
-    const anlageDoc = await PDFDocument.load(anlageBytes);
-    const anlagePages = await outDoc.copyPages(anlageDoc, anlageDoc.getPageIndices());
-    anlagePages.forEach(p => outDoc.addPage(p));
-
+    // ZIP bauen
+    const zip = new JSZip();
+    const zipFolder = zip.folder('pflegebox');
+    zipFolder.file('01_Bestellformular_Lieferschein.pdf', await bestellBlob.arrayBuffer());
+    zipFolder.file('02_Anlage_2_Ausgefuellt.pdf', await anlageBlob.arrayBuffer());
     if(wechselBlob){
-      const wechselBytes = await wechselBlob.arrayBuffer();
-      const wechselDoc = await PDFDocument.load(wechselBytes);
-      const wechselPages = await outDoc.copyPages(wechselDoc, wechselDoc.getPageIndices());
-      wechselPages.forEach(p => outDoc.addPage(p));
+      zipFolder.file('03_Wechselerklaerung_Ausgefuellt.pdf', await wechselBlob.arrayBuffer());
     }
 
-    const mergedBytes = await outDoc.save();
-    const mergedBlob = new Blob([mergedBytes], { type: 'application/pdf' });
-    const url = URL.createObjectURL(mergedBlob);
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(zipBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = wechselBlob ? 'Pflegehilfsmittel_Paket_mit_Wechselerklaerung.pdf' : 'Pflegehilfsmittel_Paket.pdf';
+    a.download = wechselBlob ? 'Pflegebox_PDFs_mit_Wechselerklaerung.zip' : 'Pflegebox_PDFs.zip';
     document.body.appendChild(a);
     a.click();
     a.remove();
@@ -2519,6 +2508,85 @@ if(status) status.textContent = (__wechselEnabled ? 'Bestellformular eingebettet
       alert('PDF Download fehlgeschlagen. Bitte erneut versuchen.');
     }
   });
+
+  // ===== BESTELLUNG ABSCHLIESSEN =====
+  const EMAILJS_SERVICE_ID  = 'YOUR_SERVICE_ID';
+  const EMAILJS_TEMPLATE_ID = 'YOUR_TEMPLATE_ID';
+  const EMAILJS_PUBLIC_KEY  = 'YOUR_PUBLIC_KEY';
+  const EMPFAENGER_EMAIL    = 'pflegebox@pb-marina.de';
+
+  document.getElementById('btnBestellung').addEventListener('click', async () => {
+    try {
+      renderBar();
+      if(!inBudget()) return;
+      if(!glovesSizeOk()) return;
+      const p = buildOutput(false);
+      const c1 = !!p?.insurance?.einverstaendnis?.consent1;
+      const c2 = !!p?.insurance?.einverstaendnis?.consent2;
+      if(!(c1 || c2)){
+        alert('Bitte aktiviere zuerst mindestens ein Einverständnis-Häkchen in Schritt 3.');
+        return;
+      }
+      const btn = document.getElementById('btnBestellung');
+      btn.disabled = true;
+      btn.textContent = 'Wird gesendet…';
+
+      const { PDFDocument } = window.PDFLib || {};
+      if(!PDFDocument) throw new Error('PDFLib nicht verfügbar.');
+      const wechselEnabled = !!(p?.insurance?.einverstaendnis?.consent2 && p?.insurance?.bezieht_bereits_pflegehilfsmittel);
+      const bestellBlob = await generateBestellformularPdf(p);
+      const anlageBlob  = await generateFilledPdf(p);
+      const wechselBlob = wechselEnabled ? await generateWechselPdf(p) : null;
+
+      const outDoc = await PDFDocument.create();
+      const bd = await PDFDocument.load(await bestellBlob.arrayBuffer());
+      (await outDoc.copyPages(bd, bd.getPageIndices())).forEach(pg => outDoc.addPage(pg));
+      const ad = await PDFDocument.load(await anlageBlob.arrayBuffer());
+      (await outDoc.copyPages(ad, ad.getPageIndices())).forEach(pg => outDoc.addPage(pg));
+      if(wechselBlob){
+        const wd = await PDFDocument.load(await wechselBlob.arrayBuffer());
+        (await outDoc.copyPages(wd, wd.getPageIndices())).forEach(pg => outDoc.addPage(pg));
+      }
+      const mergedBytes = await outDoc.save();
+      const base64Pdf = btoa(String.fromCharCode(...new Uint8Array(mergedBytes)));
+      const vorname  = document.getElementById('vorname')?.value  || '';
+      const nachname = document.getElementById('nachname')?.value || '';
+      const kundenEmail = document.getElementById('email')?.value || '';
+      const dateiname = wechselBlob ? 'Pflegehilfsmittel_Paket_mit_Wechselerklaerung.pdf' : 'Pflegehilfsmittel_Paket.pdf';
+
+      if(EMAILJS_SERVICE_ID === 'YOUR_SERVICE_ID'){
+        alert('⚠️ EmailJS ist noch nicht konfiguriert.\nBitte trage SERVICE_ID, TEMPLATE_ID und PUBLIC_KEY im Code ein.\n\nAnleitung: siehe README.md');
+        btn.disabled = false;
+        btn.textContent = 'Bestellung abschließen';
+        return;
+      }
+      emailjs.init(EMAILJS_PUBLIC_KEY);
+      await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
+        to_email: EMPFAENGER_EMAIL,
+        kunden_name: `${vorname} ${nachname}`.trim() || 'Unbekannt',
+        kunden_email: kundenEmail,
+        dateiname,
+        pdf_base64: base64Pdf,
+        betreff: `Neue Pflegebox-Bestellung – ${vorname} ${nachname}`.trim(),
+      });
+      btn.textContent = '✓ Bestellung gesendet!';
+      btn.style.background = '#27ae60';
+      btn.style.borderColor = '#27ae60';
+      setTimeout(() => {
+        btn.disabled = false;
+        btn.textContent = 'Bestellung abschließen';
+        btn.style.background = '#c0392b';
+        btn.style.borderColor = '#c0392b';
+      }, 4000);
+    } catch(e) {
+      console.error(e);
+      const btn = document.getElementById('btnBestellung');
+      btn.disabled = false;
+      btn.textContent = 'Bestellung abschließen';
+      alert('Fehler beim Senden: ' + e.message);
+    }
+  });
+  // ===== END BESTELLUNG =====
 
   document.getElementById("btnReset").addEventListener("click", () => {
     Object.keys(state).forEach(k => state[k] = 0);
